@@ -1,46 +1,48 @@
-import { auth } from "./auth";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { auth } from "@/auth";
+import { checkUsage } from "./middleware/check-usage";
 
-export default auth((req) => {
-  const isLoggedIn = !!req.auth;
-  const { nextUrl } = req;
+// List of public routes that don't require authentication
+const publicRoutes = ["/", "/pricing", "/api/webhooks"];
 
-  const isApiRoute = nextUrl.pathname.startsWith("/api");
-  const isAuthRoute =
-    nextUrl.pathname.startsWith("/login") ||
-    nextUrl.pathname.startsWith("/register");
-  const isPublicRoute = nextUrl.pathname === "/";
+// List of authentication routes
+const authRoutes = ["/login", "/register", "/auth"];
 
-  // Allow API routes to handle their own auth
-  if (isApiRoute) return;
+export async function middleware(request: NextRequest) {
+  const session = await auth();
+  const path = request.nextUrl.pathname;
 
-  // Redirect logged-in users away from auth routes
-  if (isAuthRoute) {
-    if (isLoggedIn) {
-      return Response.redirect(new URL("/dashboard", nextUrl));
-    }
-    return;
+  // Check usage limits for quote analysis endpoints
+  if (path.startsWith("/api/quotes/analyze")) {
+    return checkUsage(request);
   }
 
-  // Allow public access to landing page
-  if (isPublicRoute) {
-    return;
+  // If it's a public route, allow access
+  if (
+    publicRoutes.some(
+      (route) => path === route || path.startsWith("/api/webhooks")
+    )
+  ) {
+    return NextResponse.next();
   }
 
-  // Protect all other routes
-  if (!isLoggedIn) {
-    let callbackUrl = nextUrl.pathname;
-    if (nextUrl.search) {
-      callbackUrl += nextUrl.search;
-    }
-
-    const encodedCallbackUrl = encodeURIComponent(callbackUrl);
-    return Response.redirect(
-      new URL(`/login?callbackUrl=${encodedCallbackUrl}`, nextUrl)
-    );
+  // If it's an auth route and user is logged in, redirect to dashboard
+  if (authRoutes.some((route) => path.startsWith(route)) && session) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
-});
 
-// Optionally, don't invoke Middleware on some paths
+  // If user is not logged in and trying to access protected route, redirect to login
+  if (!session && !authRoutes.some((route) => path.startsWith(route))) {
+    const redirectUrl = new URL("/login", request.url);
+    redirectUrl.searchParams.set("callbackUrl", path);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  return NextResponse.next();
+}
+
+// Configure which routes to run middleware on
 export const config = {
   matcher: [
     /*
@@ -50,6 +52,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    "/((?!_next/static|_next/image|favicon.ico|public/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

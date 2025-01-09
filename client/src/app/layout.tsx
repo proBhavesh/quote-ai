@@ -1,25 +1,35 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { Navbar } from "@/components/navbar";
 import { Toaster } from "@/components/ui/toaster";
+import { auth } from "@/auth";
+import { SessionProvider } from "@/components/session-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Quote AI - Intelligent Quote Analysis",
-  description: "AI-powered quote analysis and estimation tool",
+  title: "QuoteAI - AI-Powered Quote Analysis",
+  description: "Get instant, accurate quotes with AI assistance",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
+  const session = await auth();
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body className={inter.className}>
-        <main className="min-h-screen bg-background">{children}</main>
-        <Toaster />
+        <SessionProvider session={session}>
+          <Navbar />
+          <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+            {children}
+          </main>
+          <Toaster />
+        </SessionProvider>
       </body>
     </html>
   );
