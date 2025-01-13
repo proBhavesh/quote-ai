@@ -4,14 +4,20 @@ import { auth } from "@/auth";
 import { checkUsage } from "./middleware/check-usage";
 
 // List of public routes that don't require authentication
-const publicRoutes = ["/", "/pricing", "/api/webhooks"];
+const publicRoutes = ["/", "/pricing"];
 
 // List of authentication routes
 const authRoutes = ["/login", "/register", "/auth"];
 
 export async function middleware(request: NextRequest) {
-  const session = await auth();
   const path = request.nextUrl.pathname;
+
+  // Allow Stripe webhook requests to pass through
+  if (path === "/api/stripe/webhooks") {
+    return NextResponse.next();
+  }
+
+  const session = await auth();
 
   // Check usage limits for quote analysis endpoints
   if (path.startsWith("/api/quotes/analyze")) {
@@ -19,11 +25,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // If it's a public route, allow access
-  if (
-    publicRoutes.some(
-      (route) => path === route || path.startsWith("/api/webhooks")
-    )
-  ) {
+  if (publicRoutes.some((route) => path === route)) {
     return NextResponse.next();
   }
 

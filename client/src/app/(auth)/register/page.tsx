@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth, signIn } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import RegisterForm from "./register-form";
@@ -48,6 +48,12 @@ export default async function RegisterPage() {
           email,
           password: hashedPassword,
         },
+      });
+
+      await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
       });
 
       return { success: true };

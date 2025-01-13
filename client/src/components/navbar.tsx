@@ -23,6 +23,13 @@ export function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
 
+  const handleSignOut = async () => {
+    await signOut({
+      callbackUrl: "/login",
+      redirect: true,
+    });
+  };
+
   return (
     <nav className="border-b">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -92,7 +99,7 @@ export function Navbar() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-red-600 focus:text-red-600"
-                    onClick={() => signOut()}
+                    onClick={handleSignOut}
                   >
                     Log out
                   </DropdownMenuItem>

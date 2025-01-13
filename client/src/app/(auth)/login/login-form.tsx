@@ -2,131 +2,147 @@
 
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
-import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useFormStatus } from "react-dom";
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? (
-        <>
-          <svg
-            className="mr-2 h-4 w-4 animate-spin"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
-          Logging in...
-        </>
-      ) : (
-        "Login"
-      )}
-    </Button>
-  );
-}
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
 
 interface LoginFormProps {
   login: (formData: FormData) => Promise<void>;
   error?: string;
 }
 
+const formSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
 export default function LoginForm({ login, error }: LoginFormProps) {
   const router = useRouter();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append("email", values.email);
+      formData.append("password", values.password);
+
+      await login(formData);
+      toast({
+        title: "Success",
+        description: "Logged in successfully",
+      });
+      router.push("/dashboard");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to login. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Login</CardTitle>
-        <CardDescription>
-          Enter your email and password to login to your account
-        </CardDescription>
-        {error && (
-          <p className="text-sm text-red-500">
-            {error === "missing-fields"
-              ? "Please provide both email and password"
-              : error === "invalid-credentials"
-              ? "Invalid email or password"
-              : "Something went wrong"}
+    <div className="container flex h-screen w-screen flex-col items-center justify-center">
+      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+        <div className="flex flex-col space-y-2 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Welcome back
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Enter your credentials to sign in to your account
           </p>
-        )}
-      </CardHeader>
-      <form
-        action={async (formData: FormData) => {
-          try {
-            await login(formData);
-            toast({
-              title: "Success",
-              description: "Logged in successfully",
-            });
-            router.push("/dashboard");
-          } catch (error) {
-            toast({
-              title: "Error",
-              description:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to login. Please try again.",
-              variant: "destructive",
-            });
-          }
-        }}
-      >
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="name@example.com"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" required />
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <SubmitButton />
-          <p className="text-sm text-muted-foreground text-center">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/register"
-              className="text-primary underline-offset-4 hover:underline"
-            >
-              Register
-            </Link>
-          </p>
-        </CardFooter>
-      </form>
-    </Card>
+          {error && (
+            <p className="text-sm text-destructive">
+              {error === "missing-fields"
+                ? "Please provide both email and password"
+                : error === "invalid-credentials"
+                ? "Invalid email or password"
+                : "Something went wrong"}
+            </p>
+          )}
+        </div>
+
+        <div className="grid gap-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="you@example.com"
+                        type="email"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Signing in..." : "Sign in"}
+              </Button>
+            </form>
+          </Form>
+        </div>
+
+        <p className="px-8 text-center text-sm text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/register"
+            className="underline underline-offset-4 hover:text-primary"
+          >
+            Create an account
+          </Link>
+        </p>
+      </div>
+    </div>
   );
 }

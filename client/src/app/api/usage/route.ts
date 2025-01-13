@@ -13,13 +13,9 @@ export async function GET() {
     const { prisma } = await import("@/lib/prisma");
     const subscription = await checkSubscription(session.user.id);
 
-    // Get current billing period
+    // Get current usage period
     const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    // Get quotes analyzed in current period
-    const currentUsage = await prisma.usage.findFirst({
+    const usage = await prisma.usage.findFirst({
       where: {
         userId: session.user.id,
         periodStart: {
@@ -29,12 +25,17 @@ export async function GET() {
           gte: now,
         },
       },
+      orderBy: {
+        periodStart: "desc",
+      },
     });
 
-    // If no usage record exists for current period, create one
-    const usage =
-      currentUsage ||
-      (await prisma.usage.create({
+    if (!usage) {
+      // If no usage record exists, create one for current month
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      const newUsage = await prisma.usage.create({
         data: {
           id: `${session.user.id}-${firstDayOfMonth.getTime()}`,
           userId: session.user.id,
@@ -43,13 +44,23 @@ export async function GET() {
           periodEnd: lastDayOfMonth,
           updatedAt: new Date(),
         },
-      }));
+      });
 
+      return NextResponse.json({
+        quotesAnalyzed: 0,
+        maxQuotes: PLANS[subscription.plan].quotas.maxQuotes,
+        periodStart: newUsage.periodStart,
+        periodEnd: newUsage.periodEnd,
+      });
+    }
+
+    // Get the plan's quota
     const plan = PLANS[subscription.plan];
+    const maxQuotes = plan.quotas.maxQuotes;
 
     return NextResponse.json({
       quotesAnalyzed: usage.quotesAnalyzed,
-      maxQuotes: plan.quotas.maxQuotes,
+      maxQuotes: maxQuotes === -1 ? Infinity : maxQuotes, // Handle unlimited quotes
       periodStart: usage.periodStart,
       periodEnd: usage.periodEnd,
     });
