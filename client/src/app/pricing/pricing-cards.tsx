@@ -26,6 +26,22 @@ export function PricingCards({
       const plan = PLANS[planId];
 
       if (planId === "FREE") {
+        if (!userId) {
+          throw new Error("User ID is required");
+        }
+
+        const response = await fetch("/api/subscription/select-free", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userId }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to select free plan");
+        }
+
         toast({
           title: "Free plan selected",
           description: "You can now use the free features.",
@@ -35,6 +51,10 @@ export function PricingCards({
 
       if (!("stripePriceId" in plan) || !plan.stripePriceId) {
         throw new Error("No price ID found");
+      }
+
+      if (!userId || !email) {
+        throw new Error("User ID and email are required for paid plans");
       }
 
       await createCheckoutSession(plan.stripePriceId);
