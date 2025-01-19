@@ -1,0 +1,5 @@
+project_id = "quote-ai"
+
+[functions]
+[functions.process-quote]
+verify_jwt = false
