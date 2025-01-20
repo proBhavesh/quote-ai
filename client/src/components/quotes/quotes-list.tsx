@@ -168,10 +168,9 @@ export function QuotesList({
       status,
       sort,
       page,
-      isLoading,
     });
     fetchQuotes();
-  }, [status, sort, page, isLoading, fetchQuotes]);
+  }, [status, sort, page, fetchQuotes]);
 
   return (
     <div className="space-y-8">
