@@ -26,17 +26,32 @@ export async function POST() {
       },
     });
 
-    // Create initial usage record
-    await prisma.usage.create({
-      data: {
-        id: `${session.user.id}-${firstDayOfMonth.getTime()}`,
+    // Check if usage record already exists for current period
+    const existingUsage = await prisma.usage.findFirst({
+      where: {
         userId: session.user.id,
-        quotesAnalyzed: 0,
-        periodStart: firstDayOfMonth,
-        periodEnd: lastDayOfMonth,
-        updatedAt: new Date(),
+        periodStart: {
+          gte: firstDayOfMonth,
+        },
+        periodEnd: {
+          lte: lastDayOfMonth,
+        },
       },
     });
+
+    // Only create a new usage record if one doesn't exist
+    if (!existingUsage) {
+      await prisma.usage.create({
+        data: {
+          id: `${session.user.id}-${firstDayOfMonth.getTime()}`,
+          userId: session.user.id,
+          quotesAnalyzed: 0,
+          periodStart: firstDayOfMonth,
+          periodEnd: lastDayOfMonth,
+          updatedAt: new Date(),
+        },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

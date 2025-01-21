@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { createCheckoutSession } from "../actions/stripe";
 import { useToast } from "@/hooks/use-toast";
 import { PLANS } from "@/lib/plans";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface PricingCardsProps {
   userId?: string;
@@ -20,9 +21,11 @@ export function PricingCards({
   isFromRegistration,
 }: PricingCardsProps) {
   const { toast } = useToast();
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   async function handleSubscribe(planId: keyof typeof PLANS) {
     try {
+      setLoadingPlan(planId);
       const plan = PLANS[planId];
 
       if (planId === "FREE") {
@@ -58,6 +61,11 @@ export function PricingCards({
       }
 
       await createCheckoutSession(plan.stripePriceId);
+
+      toast({
+        title: "Redirecting to checkout",
+        description: "You'll be redirected to complete your subscription.",
+      });
     } catch (err) {
       console.error(err);
       toast({
@@ -65,6 +73,8 @@ export function PricingCards({
         description: "Something went wrong. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setLoadingPlan(null);
     }
   }
 
@@ -162,12 +172,22 @@ export function PricingCards({
                   planId === "PREMIUM" && "bg-primary hover:bg-primary/90"
                 )}
                 onClick={() => handleSubscribe(planId as keyof typeof PLANS)}
+                disabled={loadingPlan !== null}
               >
-                {planId === "FREE"
-                  ? isFromRegistration
-                    ? "Start with Free"
-                    : "Get Started"
-                  : "Subscribe"}
+                {loadingPlan === planId ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {planId === "FREE" ? "Selecting..." : "Redirecting..."}
+                  </>
+                ) : planId === "FREE" ? (
+                  isFromRegistration ? (
+                    "Start with Free"
+                  ) : (
+                    "Get Started"
+                  )
+                ) : (
+                  "Subscribe"
+                )}
               </Button>
             </div>
           </Card>
