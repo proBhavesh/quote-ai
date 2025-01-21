@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { QuoteStatusIcon } from "@/components/quote-status-icon";
 import { supabase } from "@/lib/supabase";
+import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 interface Quote {
   id: string;
@@ -79,96 +80,128 @@ export function QuotesList({
     router.push(`/quotes?${params.toString()}`);
   };
 
+  // Handle real-time updates
+  const handleQuoteUpdate = useCallback(
+    (updatedQuote: Quote) => {
+      setQuotes((currentQuotes) => {
+        const shouldDisplay =
+          status === "all" ||
+          updatedQuote.status.toLowerCase() === status.toLowerCase();
+
+        const quoteIndex = currentQuotes.findIndex(
+          (q) => q.id === updatedQuote.id
+        );
+
+        if (quoteIndex === -1 && shouldDisplay) {
+          const newQuotes = [updatedQuote, ...currentQuotes].slice(0, limit);
+          return sort === "desc" ? newQuotes : newQuotes.reverse();
+        } else if (quoteIndex !== -1) {
+          const newQuotes = [...currentQuotes];
+          if (shouldDisplay) {
+            newQuotes[quoteIndex] = updatedQuote;
+          } else {
+            newQuotes.splice(quoteIndex, 1);
+          }
+          return newQuotes;
+        }
+
+        return currentQuotes;
+      });
+    },
+    [status, sort, limit]
+  );
+
   // Subscribe to real-time updates
   useEffect(() => {
-    console.log("Setting up Supabase subscription with:", {
-      currentStatus: status,
-      userId,
-      page,
-      sort,
-      quotesCount: quotes.length,
-    });
+    let retryCount = 0;
+    const maxRetries = 3;
 
-    const channel = supabase
-      .channel("quotes-channel")
-      .on(
-        "postgres_changes" as never,
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "Quote",
-          filter: `userId=eq.${userId}`,
-        },
-        (payload: {
-          new: { id: string; status: string };
-          old: { status: string };
-        }) => {
-          console.log("Received quote update:", {
-            quoteId: payload.new.id,
-            oldStatus: payload.old.status,
-            newStatus: payload.new.status,
-            currentFilter: status,
-            currentPage: page,
-            currentSort: sort,
-          });
+    function setupChannel() {
+      const channel = supabase
+        .channel(`quotes-list-${userId}-${Date.now()}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "Quote",
+            filter: `userId=eq.${userId}`,
+          },
+          (payload: RealtimePostgresChangesPayload<Quote>) => {
+            if (payload.new) {
+              handleQuoteUpdate(payload.new as Quote);
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "Quote",
+            filter: `userId=eq.${userId}`,
+          },
+          (payload: RealtimePostgresChangesPayload<Quote>) => {
+            if (payload.new) {
+              handleQuoteUpdate(payload.new as Quote);
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "DELETE",
+            schema: "public",
+            table: "Quote",
+            filter: `userId=eq.${userId}`,
+          },
+          (payload: RealtimePostgresChangesPayload<Quote>) => {
+            const oldQuote = payload.old as Quote | undefined;
+            if (oldQuote?.id) {
+              setQuotes((current) =>
+                current.filter((q) => q.id !== oldQuote.id)
+              );
+            }
+          }
+        )
+        .subscribe(async (status) => {
+          if (status === "SUBSCRIBED") {
+            try {
+              const { error } = await supabase
+                .from("Quote")
+                .select("*")
+                .eq("userId", userId)
+                .order("createdAt", { ascending: false })
+                .limit(1);
 
-          // Always refetch to ensure we have the correct page of data
-          fetchQuotes();
-        }
-      )
-      .on(
-        "postgres_changes" as never,
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "Quote",
-          filter: `userId=eq.${userId}`,
-        },
-        (payload: { new: Quote }) => {
-          console.log("Received new quote:", {
-            quoteId: payload.new.id,
-            status: payload.new.status,
-            currentFilter: status,
-            currentPage: page,
-            currentSort: sort,
-          });
+              if (error) {
+                console.error("Subscription verification failed:", error);
+              }
+            } catch (err) {
+              console.error("Subscription verification failed:", err);
+            }
+          } else if (status === "CLOSED" && retryCount < maxRetries) {
+            retryCount++;
+            setupChannel();
+          } else if (status === "CHANNEL_ERROR") {
+            console.error("Supabase channel error:", status);
+          }
+        });
 
-          // Always refetch to ensure we have the correct page of data
-          fetchQuotes();
-        }
-      )
-      .on(
-        "postgres_changes" as never,
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "Quote",
-          filter: `userId=eq.${userId}`,
-        },
-        (payload: { old: Quote }) => {
-          console.log("Quote deleted:", {
-            quoteId: payload.old.id,
-            currentPage: page,
-            currentSort: sort,
-          });
-          fetchQuotes();
-        }
-      )
-      .subscribe();
+      return channel;
+    }
+
+    const channel = setupChannel();
 
     return () => {
-      console.log("Cleaning up Supabase subscription");
-      supabase.removeChannel(channel);
+      supabase.removeChannel(channel).catch((error) => {
+        console.error("Failed to remove Supabase channel:", error);
+      });
     };
-  }, [userId, status, page, sort, fetchQuotes, quotes.length]);
+  }, [userId, handleQuoteUpdate, quotes]);
 
-  // Fetch quotes when params change
+  // Initial fetch when params change
   useEffect(() => {
-    console.log("Fetching quotes with params:", {
-      status,
-      sort,
-      page,
-    });
     fetchQuotes();
   }, [status, sort, page, fetchQuotes]);
 
@@ -248,29 +281,11 @@ export function QuotesList({
             </div>
           ) : (
             <div className="text-center py-6 text-muted-foreground">
-              No quotes found. Start by uploading your first quote.
+              No quotes found
             </div>
           )}
         </CardContent>
       </Card>
-
-      {Math.ceil(totalQuotes / limit) > 1 && (
-        <div className="flex justify-center gap-2">
-          {Array.from(
-            { length: Math.ceil(totalQuotes / limit) },
-            (_, i) => i + 1
-          ).map((pageNum) => (
-            <Button
-              key={pageNum}
-              variant={pageNum === page ? "default" : "outline"}
-              size="sm"
-              onClick={() => updateParams({ page: pageNum.toString() })}
-            >
-              {pageNum}
-            </Button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
