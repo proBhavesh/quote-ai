@@ -18,9 +18,13 @@ import { formatCurrency } from "@/lib/format";
 
 interface LineItemsAnalysisProps {
   items: LineItem[];
+  currency?: string;
 }
 
-export function LineItemsAnalysis({ items }: LineItemsAnalysisProps) {
+export function LineItemsAnalysis({
+  items,
+  currency = "AED",
+}: LineItemsAnalysisProps) {
   return (
     <Card>
       <CardHeader>
@@ -51,17 +55,23 @@ export function LineItemsAnalysis({ items }: LineItemsAnalysisProps) {
                 <TableCell>{item.report_no}</TableCell>
                 <TableCell>
                   {item.unit_price !== undefined
-                    ? formatCurrency(item.unit_price)
+                    ? formatCurrency(item.unit_price, currency)
                     : "N/A"}
                 </TableCell>
                 <TableCell>
                   {item.market_data?.current_market_price !== undefined
-                    ? formatCurrency(item.market_data.current_market_price)
+                    ? formatCurrency(
+                        item.market_data.current_market_price,
+                        currency
+                      )
                     : "N/A"}
                 </TableCell>
                 <TableCell>
                   {item.market_data?.price_difference !== undefined
-                    ? formatCurrency(item.market_data.price_difference)
+                    ? formatCurrency(
+                        item.market_data.price_difference,
+                        currency
+                      )
                     : "N/A"}
                 </TableCell>
                 <TableCell>
@@ -72,12 +82,15 @@ export function LineItemsAnalysis({ items }: LineItemsAnalysisProps) {
                 <TableCell>
                   {item.market_data?.potential_savings &&
                   typeof item.market_data.potential_savings === "number"
-                    ? formatCurrency(item.market_data.potential_savings)
+                    ? formatCurrency(
+                        item.market_data.potential_savings,
+                        currency
+                      )
                     : "N/A"}
                 </TableCell>
                 <TableCell>
                   {item.total_price !== undefined
-                    ? formatCurrency(item.total_price)
+                    ? formatCurrency(item.total_price, currency)
                     : "N/A"}
                 </TableCell>
               </TableRow>

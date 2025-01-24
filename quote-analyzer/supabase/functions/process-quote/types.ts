@@ -9,6 +9,7 @@ export interface Quote {
   status: QuoteStatus;
   originalData?: {
     text: string;
+    currency: string;
     parsed_tables: Array<{
       columns: string[];
       rows: Array<{
@@ -36,6 +37,30 @@ export interface Quote {
 }
 
 export interface QuoteAnalysisResult {
+  originalData: {
+    text: string;
+    currency: string;
+    parsed_tables: Array<{
+      columns: string[];
+      rows: Array<{
+        no: number;
+        report_no: string;
+        description: string;
+        quantity: number;
+        unit_price: number;
+        discount: number;
+        amount_excl_vat: number;
+        vat_percentage: number;
+        vat_amount: number;
+        total_incl_vat: number;
+      }>;
+      totals: {
+        subtotal: number;
+        total_vat: number;
+        total_amount: number;
+      };
+    }>;
+  };
   metadata: {
     invoice_number: string;
     date: string;
@@ -70,4 +95,5 @@ export interface QuoteAnalysisResult {
       percentage_above_market: number;
     };
   };
+  error?: string; // Optional error message field
 }

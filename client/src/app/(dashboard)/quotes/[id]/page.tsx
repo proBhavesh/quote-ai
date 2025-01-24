@@ -42,6 +42,7 @@ export default async function QuotePage({
 
   const originalData = quote.originalData as OriginalData | null;
   const results = quote.results as AIAnalysisResults | null;
+  const currency = originalData?.currency || "AED";
 
   return (
     <div className="space-y-6">
@@ -58,8 +59,8 @@ export default async function QuotePage({
       {results && results.metadata && results.line_items && results.summary && (
         <>
           <InvoiceDetails metadata={results.metadata} />
-          <LineItemsAnalysis items={results.line_items} />
-          <CostSummary summary={results.summary} />
+          <LineItemsAnalysis items={results.line_items} currency={currency} />
+          <CostSummary summary={results.summary} currency={currency} />
         </>
       )}
 

@@ -151,6 +151,7 @@ serve(async (req) => {
       status: "COMPLETED" as QuoteStatus,
       originalData: {
         text: analysis.originalData.text,
+        currency: analysis.originalData.currency,
         parsed_tables: analysis.originalData.parsed_tables,
       },
       results: {
@@ -200,7 +201,27 @@ serve(async (req) => {
 
         const updateData: Partial<Quote> = {
           status: "ERROR" as QuoteStatus,
-          results: { error: error.message },
+          results: {
+            originalData: { text: "", currency: "", parsed_tables: [] },
+            metadata: {
+              invoice_number: "",
+              date: "",
+              vendor: "",
+              total_amount: 0,
+            },
+            line_items: [],
+            summary: {
+              subtotal: 0,
+              tax: 0,
+              total: 0,
+              market_comparison: {
+                total_at_market_price: 0,
+                total_price_difference: 0,
+                percentage_above_market: 0,
+              },
+            },
+            error: error.message,
+          },
           updatedAt: new Date().toISOString(),
         };
 

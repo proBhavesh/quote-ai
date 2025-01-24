@@ -43,12 +43,13 @@ export async function processQuote(
       system:
         "You are an expert at analyzing quotes and invoices with deep knowledge of current market prices. Your tasks are:\n\n" +
         "1. Extract all line items exactly as they appear in the document\n" +
-        "2. For each service/item, provide REAL market price estimates:\n" +
+        "2. Identify and extract the currency used in the document (use ISO 4217 code like USD, EUR). If not explicitly stated, infer from context and symbols ($, €, etc)\n" +
+        "3. For each service/item, provide REAL market price estimates in the SAME CURRENCY as the original quote:\n" +
         "   - Research-based current market prices that may be different from quoted prices\n" +
         "   - Realistic price ranges based on market research\n" +
         "   - Calculate actual price differences between quoted and market prices\n" +
         "   - Show percentage differences when prices vary from market rates\n" +
-        "3. For the overall analysis:\n" +
+        "4. For the overall analysis:\n" +
         "   - Calculate what the total cost would be at current market prices\n" +
         "   - Show the actual difference between quoted total and market-rate total\n" +
         "   - Provide realistic percentage comparisons\n\n" +
@@ -71,10 +72,11 @@ export async function processQuote(
             {
               type: "text",
               text:
-                "Extract the raw data and provide REAL market price analysis. The quoted prices may not match current market rates. Return only JSON in this format:\n\n" +
+                "Extract the raw data and provide REAL market price analysis in the SAME CURRENCY as the original quote. The quoted prices may not match current market rates. Return only JSON in this format:\n\n" +
                 "{\n" +
                 '  "originalData": {\n' +
                 '    "text": string,\n' +
+                '    "currency": string, // ISO 4217 currency code\n' +
                 '    "parsed_tables": [{\n' +
                 '      "columns": string[],\n' +
                 '      "rows": [{\n' +
