@@ -1,7 +1,7 @@
 import openai
 import json
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from loguru import logger
 from tqdm import tqdm
 import time
@@ -45,25 +45,52 @@ class QuoteFineTuner:
         """Upload training file to OpenAI."""
         try:
             with open(training_file, "rb") as f:
-                response = openai.File.create(file=f, purpose="fine-tune")
+                response = openai.files.create(file=f, purpose="fine-tune")
             return response.id
         except Exception as e:
             logger.error(f"Error uploading training file: {str(e)}")
             raise
 
-    def create_fine_tuning_job(self, training_file_id: str) -> str:
-        """Create and start a fine-tuning job."""
+    def create_fine_tuning_job(
+        self, training_file_id: str, validation_file_id: Optional[str] = None
+    ) -> str:
+        """Create and start a fine-tuning job.
+
+        Args:
+            training_file_id: The ID of the uploaded training file
+            validation_file_id: Optional ID of a validation file
+
+        Returns:
+            The ID of the created fine-tuning job
+        """
         try:
-            response = openai.FineTuningJob.create(
-                training_file=training_file_id,
-                model=self.model_name,
-                hyperparameters={
-                    "n_epochs": TRAINING_CONFIG["num_epochs"],
-                    "batch_size": TRAINING_CONFIG["batch_size"],
-                    "learning_rate_multiplier": TRAINING_CONFIG["learning_rate"],
+            # Prepare the job creation parameters
+            job_params = {
+                "model": self.model_name,
+                "training_file": training_file_id,
+                "method": {
+                    "type": "supervised",
+                    "supervised": {
+                        "hyperparameters": {
+                            "batch_size": "auto",
+                            "learning_rate_multiplier": "auto",
+                            "n_epochs": TRAINING_CONFIG.get("num_epochs", "auto"),
+                        }
+                    },
                 },
-            )
+            }
+
+            # Add optional parameters
+            if validation_file_id:
+                job_params["validation_file"] = validation_file_id
+
+            if "model_suffix" in TRAINING_CONFIG:
+                job_params["suffix"] = TRAINING_CONFIG["model_suffix"]
+
+            # Create the fine-tuning job
+            response = openai.fine_tuning.jobs.create(**job_params)
             return response.id
+
         except Exception as e:
             logger.error(f"Error creating fine-tuning job: {str(e)}")
             raise
@@ -72,20 +99,45 @@ class QuoteFineTuner:
         """Monitor the progress of a fine-tuning job."""
         while True:
             try:
-                job = openai.FineTuningJob.retrieve(job_id)
+                # Retrieve the job status
+                job = openai.fine_tuning.jobs.retrieve(job_id)
                 status = job.status
 
                 logger.info(f"Fine-tuning status: {status}")
+
                 if status == "succeeded":
+                    # Get the result files if available
+                    result_files = []
+                    if job.result_files:
+                        result_files = [
+                            openai.files.retrieve(file_id)
+                            for file_id in job.result_files
+                        ]
+
                     return {
                         "status": "success",
                         "model_id": job.fine_tuned_model,
-                        "training_metrics": job.result,
+                        "result_files": result_files,
+                        "training_metrics": getattr(job, "training_metrics", None),
+                        "validation_metrics": getattr(job, "validation_metrics", None),
                     }
-                elif status == "failed":
-                    return {"status": "failed", "error": job.error}
+                elif status in ["failed", "cancelled"]:
+                    return {
+                        "status": "failed",
+                        "error": getattr(job, "error", None),
+                        "failed_at": getattr(job, "failed_at", None),
+                    }
+
+                # Add more detailed status information
+                if hasattr(job, "trained_tokens"):
+                    logger.info(f"Trained tokens: {job.trained_tokens}")
+                if hasattr(job, "training_metrics"):
+                    logger.info(
+                        f"Current loss: {job.training_metrics.get('loss', 'N/A')}"
+                    )
 
                 time.sleep(60)  # Check status every minute
+
             except Exception as e:
                 logger.error(f"Error monitoring fine-tuning: {str(e)}")
                 time.sleep(self.retry_delay)
@@ -93,12 +145,29 @@ class QuoteFineTuner:
     def save_model_info(self, model_info: Dict[str, Any], output_path: Path):
         """Save model information and metrics."""
         try:
+            # Ensure the output directory exists
+            output_path.mkdir(parents=True, exist_ok=True)
+
+            # Save the model info
             with open(output_path / "model_info.json", "w") as f:
                 json.dump(model_info, f, indent=2)
+
+            # Download and save result files if available
+            if model_info.get("result_files"):
+                for file_data in model_info["result_files"]:
+                    file_path = output_path / f"results_{file_data.id}.jsonl"
+                    with open(file_path, "wb") as f:
+                        content = openai.files.download(file_data.id)
+                        f.write(content)
+                    logger.info(f"Saved result file: {file_path}")
+
         except Exception as e:
             logger.error(f"Error saving model info: {str(e)}")
+            raise
 
-    def fine_tune(self, training_file: Path) -> Dict[str, Any]:
+    def fine_tune(
+        self, training_file: Path, validation_file: Optional[Path] = None
+    ) -> Dict[str, Any]:
         """Run the complete fine-tuning process."""
         logger.info("Starting fine-tuning process...")
 
@@ -108,11 +177,22 @@ class QuoteFineTuner:
 
         # Upload training file
         logger.info("Uploading training file...")
-        file_id = self.prepare_training_file(training_file)
+        training_file_id = self.prepare_training_file(training_file)
+
+        # Upload validation file if provided
+        validation_file_id = None
+        if validation_file:
+            logger.info("Uploading validation file...")
+            if self.validate_training_data(validation_file):
+                validation_file_id = self.prepare_training_file(validation_file)
+            else:
+                logger.warning(
+                    "Invalid validation data format, skipping validation file"
+                )
 
         # Create and start fine-tuning job
         logger.info("Creating fine-tuning job...")
-        job_id = self.create_fine_tuning_job(file_id)
+        job_id = self.create_fine_tuning_job(training_file_id, validation_file_id)
 
         # Monitor progress
         logger.info("Monitoring fine-tuning progress...")
@@ -121,12 +201,11 @@ class QuoteFineTuner:
         # Save model information
         if result["status"] == "success":
             output_dir = MODELS_DIR / result["model_id"]
-            output_dir.mkdir(parents=True, exist_ok=True)
             self.save_model_info(result, output_dir)
             logger.info(
                 f"Fine-tuning completed successfully. Model saved to {output_dir}"
             )
         else:
-            logger.error("Fine-tuning failed")
+            logger.error(f"Fine-tuning failed: {result.get('error', 'Unknown error')}")
 
         return result
