@@ -14,6 +14,7 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  let supabaseClient;
   try {
     console.log("[process-quote] Starting quote processing request");
 
@@ -36,7 +37,7 @@ serve(async (req) => {
     }
 
     // Create client with explicit auth config
-    const supabaseClient = createClient(supabaseUrl, supabaseKey, {
+    supabaseClient = createClient(supabaseUrl, supabaseKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -140,7 +141,11 @@ serve(async (req) => {
     console.log(`[process-quote] PDF buffer size: ${pdfBuffer.length} bytes`);
 
     console.log("[process-quote] Sending to Claude for analysis");
-    const analysis = await processQuote(pdfBuffer);
+    const analysis = await processQuote({
+      pdfBuffer: pdfBuffer,
+      userId: record.userId,
+      quoteId: record.id,
+    });
     console.log(
       "[process-quote] Received analysis from Claude:",
       JSON.stringify(analysis, null, 2)
@@ -190,55 +195,56 @@ serve(async (req) => {
       stack: error.stack,
     });
 
-    // Update quote status to error if we have the record
-    if (req.body && JSON.parse(req.body).record?.id) {
+    // Update quote status to error if we have the record and client
+    if (supabaseClient && req.body) {
       try {
-        console.log("[process-quote] Updating quote status to ERROR");
-        const supabaseClient = createClient(
-          Deno.env.get("SUPABASE_URL") ?? "",
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-        );
+        const payload = await req.json();
+        const { record } = payload;
 
-        const updateData: Partial<Quote> = {
-          status: "ERROR" as QuoteStatus,
-          results: {
-            originalData: { text: "", currency: "", parsed_tables: [] },
-            metadata: {
-              invoice_number: "",
-              date: "",
-              vendor: "",
-              total_amount: 0,
-            },
-            line_items: [],
-            summary: {
-              subtotal: 0,
-              tax: 0,
-              total: 0,
-              market_comparison: {
-                total_at_market_price: 0,
-                total_price_difference: 0,
-                percentage_above_market: 0,
+        if (record?.id) {
+          console.log("[process-quote] Updating quote status to ERROR");
+
+          const updateData: Partial<Quote> = {
+            status: "ERROR" as QuoteStatus,
+            results: {
+              originalData: { text: "", currency: "", parsed_tables: [] },
+              metadata: {
+                invoice_number: "",
+                date: "",
+                vendor: "",
+                total_amount: 0,
               },
+              line_items: [],
+              summary: {
+                subtotal: 0,
+                tax: 0,
+                total: 0,
+                market_comparison: {
+                  total_at_market_price: 0,
+                  total_price_difference: 0,
+                  percentage_above_market: 0,
+                },
+              },
+              error: error.message,
             },
-            error: error.message,
-          },
-          updatedAt: new Date().toISOString(),
-        };
+            updatedAt: new Date().toISOString(),
+          };
 
-        const errorUpdate = await supabaseClient
-          .from("Quote")
-          .update(updateData)
-          .eq("id", JSON.parse(req.body).record.id);
+          const errorUpdate = await supabaseClient
+            .from("Quote")
+            .update(updateData)
+            .eq("id", record.id);
 
-        if (errorUpdate.error) {
-          console.error(
-            "[process-quote] Failed to update status to ERROR:",
-            errorUpdate.error
-          );
-        } else {
-          console.log(
-            "[process-quote] Successfully updated quote status to ERROR"
-          );
+          if (errorUpdate.error) {
+            console.error(
+              "[process-quote] Failed to update status to ERROR:",
+              errorUpdate.error
+            );
+          } else {
+            console.log(
+              "[process-quote] Successfully updated quote status to ERROR"
+            );
+          }
         }
       } catch (updateError) {
         console.error(
@@ -248,9 +254,15 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error: error.message,
+        status: "ERROR",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });

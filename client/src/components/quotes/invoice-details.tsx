@@ -10,7 +10,7 @@ import { QuoteMetadata } from "@/types/quotes";
 import { formatCurrency } from "@/lib/format";
 
 interface InvoiceDetailsProps {
-  metadata: QuoteMetadata;
+  metadata: Partial<QuoteMetadata>;
 }
 
 export function InvoiceDetails({ metadata }: InvoiceDetailsProps) {
@@ -25,13 +25,13 @@ export function InvoiceDetails({ metadata }: InvoiceDetailsProps) {
           <TableBody>
             <TableRow>
               <TableCell className="font-medium">Invoice Number</TableCell>
-              <TableCell>{metadata.invoice_number}</TableCell>
+              <TableCell>{metadata.invoice_number || "N/A"}</TableCell>
               <TableCell className="font-medium">Date</TableCell>
-              <TableCell>{metadata.date}</TableCell>
+              <TableCell>{metadata.date || "N/A"}</TableCell>
             </TableRow>
             <TableRow>
               <TableCell className="font-medium">Vendor</TableCell>
-              <TableCell>{metadata.vendor}</TableCell>
+              <TableCell>{metadata.vendor || "N/A"}</TableCell>
               <TableCell className="font-medium">Total Amount</TableCell>
               <TableCell>
                 {metadata.total_amount !== undefined

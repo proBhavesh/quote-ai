@@ -82,6 +82,12 @@ export interface QuoteAnalysisResult {
       };
       price_difference: number;
       percentage_difference: number;
+      supplier_links: Array<{
+        name: string;
+        url: string;
+        price?: number;
+        availability?: string;
+      }>;
     };
   }>;
   summary: {

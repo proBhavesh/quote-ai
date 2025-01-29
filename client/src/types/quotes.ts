@@ -42,6 +42,12 @@ export interface MarketData {
   price_difference: number;
   current_market_price: number;
   percentage_difference: number;
+  supplier_links?: {
+    url: string;
+    name: string;
+    price: number;
+    availability: string;
+  }[];
   [key: string]: unknown;
 }
 

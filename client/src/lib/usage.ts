@@ -28,14 +28,17 @@ export async function getUserUsage(userId: string): Promise<UsageInfo> {
   });
 
   const maxQuotes = plan.quotas.maxQuotes;
-  const remainingQuotes = Math.max(0, maxQuotes - currentUsage);
-  const percentageUsed = (currentUsage / maxQuotes) * 100;
-  const isOverLimit = currentUsage >= maxQuotes;
+  const isUnlimited = maxQuotes === -1;
+  const remainingQuotes = isUnlimited
+    ? Infinity
+    : Math.max(0, maxQuotes - currentUsage);
+  const percentageUsed = isUnlimited ? 0 : (currentUsage / maxQuotes) * 100;
+  const isOverLimit = !isUnlimited && currentUsage >= maxQuotes;
 
   let message: string | undefined;
   if (isOverLimit) {
     message = `You've reached your ${plan.name} plan limit of ${maxQuotes} quotes per month. Upgrade your plan to continue uploading and unlock additional features.`;
-  } else if (remainingQuotes <= 5) {
+  } else if (!isUnlimited && remainingQuotes <= 5) {
     message = `You have ${remainingQuotes} quote${
       remainingQuotes === 1 ? "" : "s"
     } remaining in your ${
@@ -45,14 +48,14 @@ export async function getUserUsage(userId: string): Promise<UsageInfo> {
 
   return {
     currentUsage,
-    maxQuotes,
+    maxQuotes: isUnlimited ? Infinity : maxQuotes,
     canUpload: !isOverLimit,
     remainingQuotes,
     percentageUsed,
     message,
     planName: plan.name,
     isOverLimit,
-    limitType: "MONTHLY",
+    limitType: isUnlimited ? "NONE" : "MONTHLY",
   };
 }
 

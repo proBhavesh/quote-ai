@@ -1,15 +1,41 @@
 import { QuoteAnalysisResult, QuoteStatus } from "./types.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.204.0/encoding/base64.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-3-5-sonnet-20241022";
 
+interface ProcessQuoteParams {
+  pdfBuffer: Uint8Array;
+  userId: string;
+  quoteId: string;
+}
+
 export async function processQuote(
-  pdfBuffer: Uint8Array
+  params: ProcessQuoteParams
 ): Promise<QuoteAnalysisResult> {
+  let supabase;
   try {
     console.log("[processQuote] Starting quote processing");
-    console.log(`[processQuote] PDF buffer size: ${pdfBuffer.length} bytes`);
+    console.log(
+      `[processQuote] PDF buffer size: ${params.pdfBuffer.length} bytes`
+    );
+
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error("Missing Supabase environment variables");
+    }
+
+    supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    });
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
@@ -21,16 +47,16 @@ export async function processQuote(
     console.log("[processQuote] Successfully retrieved API key");
 
     // Check PDF size limit (32MB)
-    if (pdfBuffer.length > 32 * 1024 * 1024) {
+    if (params.pdfBuffer.length > 32 * 1024 * 1024) {
       console.error(
-        `[processQuote] PDF size ${pdfBuffer.length} bytes exceeds 32MB limit`
+        `[processQuote] PDF size ${params.pdfBuffer.length} bytes exceeds 32MB limit`
       );
       throw new Error("PDF file size exceeds 32MB limit");
     }
     console.log("[processQuote] PDF size validation passed");
 
     console.log("[processQuote] Converting PDF to base64");
-    const base64Data = base64Encode(pdfBuffer);
+    const base64Data = base64Encode(params.pdfBuffer);
     console.log(
       `[processQuote] Base64 conversion complete. Length: ${base64Data.length}`
     );
@@ -49,11 +75,15 @@ export async function processQuote(
         "   - Realistic price ranges based on market research\n" +
         "   - Calculate actual price differences between quoted and market prices\n" +
         "   - Show percentage differences when prices vary from market rates\n" +
+        "   - Provide 1-4 relevant supplier/vendor links where the item can be purchased, including major e-commerce platforms and specialized suppliers\n" +
         "4. For the overall analysis:\n" +
         "   - Calculate what the total cost would be at current market prices\n" +
         "   - Show the actual difference between quoted total and market-rate total\n" +
         "   - Provide realistic percentage comparisons\n\n" +
-        "IMPORTANT: Do not just repeat the quoted prices. Provide genuine market-based price estimates that may be higher or lower than the quoted prices.",
+        "IMPORTANT:\n" +
+        "- Do not just repeat the quoted prices. Provide genuine market-based price estimates that may be higher or lower than the quoted prices.\n" +
+        "- For supplier links, prioritize reputable vendors and ensure links are to specific product pages when possible.\n" +
+        "- Include a mix of large marketplaces (e.g., Amazon, Home Depot) and specialized suppliers when relevant.",
       messages: [
         {
           role: "user",
@@ -118,7 +148,13 @@ export async function processQuote(
                 '        "highest_market_price": number\n' +
                 "      },\n" +
                 '      "price_difference": number,\n' +
-                '      "percentage_difference": number\n' +
+                '      "percentage_difference": number,\n' +
+                '      "supplier_links": [{\n' +
+                '        "name": string,\n' +
+                '        "url": string,\n' +
+                '        "price": number?,\n' +
+                '        "availability": string?\n' +
+                "      }]\n" +
                 "    }\n" +
                 "  }],\n" +
                 '  "summary": {\n' +
@@ -194,6 +230,45 @@ export async function processQuote(
       message: error.message,
       stack: error.stack,
     });
-    throw new Error("Failed to analyze quote with AI");
+
+    // Update quote status to ERROR if we have Supabase client
+    if (supabase) {
+      try {
+        await supabase
+          .from("Quote")
+          .update({
+            status: "ERROR" as QuoteStatus,
+            results: {
+              error: error.message,
+              metadata: {
+                invoice_number: "",
+                date: "",
+                vendor: "",
+                total_amount: 0,
+              },
+              line_items: [],
+              summary: {
+                subtotal: 0,
+                tax: 0,
+                total: 0,
+                market_comparison: {
+                  total_at_market_price: 0,
+                  total_price_difference: 0,
+                  percentage_above_market: 0,
+                },
+              },
+            },
+            updatedAt: new Date().toISOString(),
+          })
+          .eq("id", params.quoteId);
+      } catch (updateError) {
+        console.error(
+          "[processQuote] Failed to update quote status to ERROR:",
+          updateError
+        );
+      }
+    }
+
+    throw new Error(`Failed to analyze quote with AI: ${error.message}`);
   }
 }

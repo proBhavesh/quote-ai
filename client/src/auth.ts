@@ -11,7 +11,11 @@ export const {
   signOut,
 } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60, // 24 hours
+  },
   pages: {
     signIn: "/login",
   },
@@ -53,9 +57,22 @@ export const {
     }),
   ],
   callbacks: {
+    async jwt({ token, user, trigger, session }) {
+      if (trigger === "signIn" && user) {
+        token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+      } else if (trigger === "update" && session) {
+        // Handle session updates
+        Object.assign(token, session.user);
+      }
+      return token;
+    },
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.sub!;
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string;
       }
       return session;
     },

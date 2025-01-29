@@ -49,11 +49,15 @@ model User {
   stripeSubscriptionId   String?   @unique
   subscriptionStatus     String?   @default("FREE")
   usageCount             Int       @default(0)
+  total_savings          Float?
+  quotes_with_savings    Int       @default(0)
   accounts               Account[]
   quotes                 Quote[]
   sessions               Session[]
   Usage                  Usage[]
   uploadSessions         UploadSession[]
+
+  @@index([email])
 }
 
 model VerificationToken {

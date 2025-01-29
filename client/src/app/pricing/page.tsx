@@ -2,8 +2,10 @@ import { auth } from "@/auth";
 import { PricingCards } from "./pricing-cards";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { checkSubscription } from "@/lib/stripe";
+import { Suspense } from "react";
+import PricingLoading from "./loading";
 
-export default async function PricingPage({
+async function PricingContent({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -21,24 +23,36 @@ export default async function PricingPage({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center p-4">
-      <div className="w-full max-w-5xl space-y-6">
-        {isFromRegister && (
-          <Alert>
-            <AlertDescription>
-              You can start with our free plan and upgrade anytime.
-            </AlertDescription>
-          </Alert>
-        )}
+    <div className="w-full max-w-5xl space-y-6">
+      {isFromRegister && (
+        <Alert>
+          <AlertDescription>
+            You can start with our free plan and upgrade anytime.
+          </AlertDescription>
+        </Alert>
+      )}
 
-        <div className="bg-white py-6 px-4 shadow-sm sm:rounded-lg sm:px-6">
-          <PricingCards
-            userId={session?.user?.id}
-            currentPlan={currentPlan as "FREE" | "PREMIUM" | "ENTERPRISE"}
-            isFromRegistration={isFromRegister}
-          />
-        </div>
+      <div className="bg-white py-6 px-4 shadow-sm sm:rounded-lg sm:px-6">
+        <PricingCards
+          userId={session?.user?.id}
+          currentPlan={currentPlan as "FREE" | "PREMIUM" | "ENTERPRISE"}
+          isFromRegistration={isFromRegister}
+        />
       </div>
+    </div>
+  );
+}
+
+export default function PricingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  return (
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center p-4">
+      <Suspense fallback={<PricingLoading />}>
+        <PricingContent searchParams={searchParams} />
+      </Suspense>
     </div>
   );
 }
