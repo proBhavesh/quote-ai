@@ -40,22 +40,46 @@ export async function POST(req: Request) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        // Get subscription details to access metadata
+        // Get subscription details
+        if (!session.subscription) {
+          console.error("[Webhook] No subscription in session");
+          return new NextResponse("No subscription found", { status: 400 });
+        }
+
+        // Get subscription to access metadata
         const subscription = await stripe.subscriptions.retrieve(
           session.subscription as string
         );
-        console.log("[Webhook] Subscription retrieved:", {
-          subscriptionId: subscription.id,
-          metadata: subscription.metadata,
-        });
 
-        const userId = subscription.metadata.userId;
-        if (!userId) {
-          console.error("[Webhook] Missing userId in metadata");
-          return new NextResponse("Missing userId", { status: 400 });
+        // First try to get userId from subscription metadata
+        let userId = subscription.metadata.userId;
+
+        // If not found, try session metadata
+        if (!userId && session.metadata?.userId) {
+          userId = session.metadata.userId;
         }
 
-        // Find user first to ensure they exist
+        // If still not found, try to find user by customer ID
+        if (!userId && session.customer) {
+          const user = await prisma.user.findFirst({
+            where: { stripeCustomerId: session.customer as string },
+          });
+          if (user) {
+            userId = user.id;
+          }
+        }
+
+        if (!userId) {
+          console.error("[Webhook] Could not determine userId", {
+            sessionId: session.id,
+            subscriptionId: subscription.id,
+          });
+          return new NextResponse("Could not determine userId", {
+            status: 400,
+          });
+        }
+
+        // Find user to ensure they exist
         const user = await prisma.user.findUnique({
           where: { id: userId },
         });
@@ -106,17 +130,23 @@ export async function POST(req: Request) {
         const subscription = await stripe.subscriptions.retrieve(
           invoice.subscription as string
         );
-        console.log("[Webhook] Processing invoice payment:", {
-          subscriptionId: subscription.id,
-        });
 
-        const user = await prisma.user.findUnique({
+        // Try to find user by subscription ID first
+        let user = await prisma.user.findFirst({
           where: { stripeSubscriptionId: subscription.id },
         });
 
+        // If not found, try by customer ID
+        if (!user && invoice.customer) {
+          user = await prisma.user.findFirst({
+            where: { stripeCustomerId: invoice.customer as string },
+          });
+        }
+
         if (!user) {
-          console.error("[Webhook] User not found for subscription:", {
+          console.error("[Webhook] User not found for invoice:", {
             subscriptionId: subscription.id,
+            customerId: invoice.customer,
           });
           return new NextResponse("User not found", { status: 404 });
         }
@@ -135,17 +165,23 @@ export async function POST(req: Request) {
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        console.log("[Webhook] Processing subscription deletion:", {
-          subscriptionId: subscription.id,
-        });
 
-        const user = await prisma.user.findUnique({
+        // Try to find user by subscription ID first
+        let user = await prisma.user.findFirst({
           where: { stripeSubscriptionId: subscription.id },
         });
+
+        // If not found, try by customer ID
+        if (!user && subscription.customer) {
+          user = await prisma.user.findFirst({
+            where: { stripeCustomerId: subscription.customer as string },
+          });
+        }
 
         if (!user) {
           console.error("[Webhook] User not found for subscription:", {
             subscriptionId: subscription.id,
+            customerId: subscription.customer,
           });
           return new NextResponse("User not found", { status: 404 });
         }
@@ -165,23 +201,28 @@ export async function POST(req: Request) {
 
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
-        const priceId = subscription.items.data[0].price.id;
-        console.log("[Webhook] Processing subscription update:", {
-          subscriptionId: subscription.id,
-          priceId,
-        });
 
-        const user = await prisma.user.findUnique({
+        // Try to find user by subscription ID first
+        let user = await prisma.user.findFirst({
           where: { stripeSubscriptionId: subscription.id },
         });
+
+        // If not found, try by customer ID
+        if (!user && subscription.customer) {
+          user = await prisma.user.findFirst({
+            where: { stripeCustomerId: subscription.customer as string },
+          });
+        }
 
         if (!user) {
           console.error("[Webhook] User not found for subscription:", {
             subscriptionId: subscription.id,
+            customerId: subscription.customer,
           });
           return new NextResponse("User not found", { status: 404 });
         }
 
+        const priceId = subscription.items.data[0].price.id;
         const planId =
           priceId === process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID
             ? "PREMIUM"

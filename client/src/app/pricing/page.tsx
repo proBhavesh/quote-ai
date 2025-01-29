@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { PricingCards } from "./pricing-cards";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { checkSubscription } from "@/lib/stripe";
 
 export default async function PricingPage({
   searchParams,
@@ -11,6 +12,13 @@ export default async function PricingPage({
   const from = resolvedSearchParams?.from as string | undefined;
   const isFromRegister = from === "register";
   const session = await auth();
+
+  // Get current subscription status
+  let currentPlan = "FREE";
+  if (session?.user?.id) {
+    const subscription = await checkSubscription(session.user.id);
+    currentPlan = subscription.plan;
+  }
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center p-4">
@@ -26,7 +34,7 @@ export default async function PricingPage({
         <div className="bg-white py-6 px-4 shadow-sm sm:rounded-lg sm:px-6">
           <PricingCards
             userId={session?.user?.id}
-            email={session?.user?.email ?? ""}
+            currentPlan={currentPlan as "FREE" | "PREMIUM" | "ENTERPRISE"}
             isFromRegistration={isFromRegister}
           />
         </div>

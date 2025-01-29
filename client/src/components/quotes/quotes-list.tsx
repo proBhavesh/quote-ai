@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -22,6 +21,8 @@ import {
 import { QuoteStatusIcon } from "@/components/quote-status-icon";
 import { supabase } from "@/lib/supabase";
 import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import { Pagination } from "@/components/pagination";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Quote {
   id: string;
@@ -50,6 +51,7 @@ export function QuotesList({
   const sort = searchParams.get("sort") || "desc";
   const page = Number(searchParams.get("page")) || 1;
   const limit = 10;
+  const totalPages = Math.ceil(totalQuotes / limit);
 
   // Function to fetch quotes
   const fetchQuotes = useCallback(async () => {
@@ -92,7 +94,7 @@ export function QuotesList({
           (q) => q.id === updatedQuote.id
         );
 
-        if (quoteIndex === -1 && shouldDisplay) {
+        if (quoteIndex === -1 && shouldDisplay && page === 1) {
           const newQuotes = [updatedQuote, ...currentQuotes].slice(0, limit);
           return sort === "desc" ? newQuotes : newQuotes.reverse();
         } else if (quoteIndex !== -1) {
@@ -108,14 +110,11 @@ export function QuotesList({
         return currentQuotes;
       });
     },
-    [status, sort, limit]
+    [status, sort, limit, page]
   );
 
   // Subscribe to real-time updates
   useEffect(() => {
-    let retryCount = 0;
-    const maxRetries = 3;
-
     function setupChannel() {
       const channel = supabase
         .channel(`quotes-list-${userId}-${Date.now()}`)
@@ -164,29 +163,7 @@ export function QuotesList({
             }
           }
         )
-        .subscribe(async (status) => {
-          if (status === "SUBSCRIBED") {
-            try {
-              const { error } = await supabase
-                .from("Quote")
-                .select("*")
-                .eq("userId", userId)
-                .order("createdAt", { ascending: false })
-                .limit(1);
-
-              if (error) {
-                console.error("Subscription verification failed:", error);
-              }
-            } catch (err) {
-              console.error("Subscription verification failed:", err);
-            }
-          } else if (status === "CLOSED" && retryCount < maxRetries) {
-            retryCount++;
-            setupChannel();
-          } else if (status === "CHANNEL_ERROR") {
-            console.error("Supabase channel error:", status);
-          }
-        });
+        .subscribe();
 
       return channel;
     }
@@ -198,7 +175,7 @@ export function QuotesList({
         console.error("Failed to remove Supabase channel:", error);
       });
     };
-  }, [userId, handleQuoteUpdate, quotes]);
+  }, [userId, handleQuoteUpdate]);
 
   // Initial fetch when params change
   useEffect(() => {
@@ -244,45 +221,52 @@ export function QuotesList({
         <CardHeader>
           <CardTitle>All Quotes</CardTitle>
           <CardDescription>
-            Showing {quotes.length} of {totalQuotes} quotes
+            Showing {Math.min(page * limit, totalQuotes) - (page - 1) * limit}{" "}
+            of {totalQuotes} quotes
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-8">
           {isLoading ? (
-            <div className="text-center py-6 text-muted-foreground">
-              Loading...
+            // Loading skeleton
+            <div className="space-y-4">
+              {Array.from({ length: limit }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-4 w-4" />
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              ))}
             </div>
           ) : quotes.length > 0 ? (
             <div className="space-y-4">
               {quotes.map((quote) => (
-                <div
+                <Link
                   key={quote.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
+                  href={`/quotes/${quote.id}`}
+                  className="flex items-center gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50"
                 >
-                  <div className="flex-1">
-                    <div className="font-medium">{quote.title}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(quote.createdAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <QuoteStatusIcon status={quote.status} />
-                      <span className="text-sm font-medium capitalize">
-                        {quote.status.toLowerCase()}
-                      </span>
-                    </div>
-                    <Link href={`/quotes/${quote.id}`}>
-                      <Button variant="ghost">View Details</Button>
-                    </Link>
-                  </div>
-                </div>
+                  <QuoteStatusIcon status={quote.status} />
+                  <span className="flex-1 font-medium">{quote.title}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(quote.createdAt).toLocaleDateString()}
+                  </span>
+                </Link>
               ))}
             </div>
           ) : (
-            <div className="text-center py-6 text-muted-foreground">
+            <div className="py-6 text-center text-muted-foreground">
               No quotes found
             </div>
+          )}
+
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={(newPage) =>
+                updateParams({ page: String(newPage) })
+              }
+            />
           )}
         </CardContent>
       </Card>
