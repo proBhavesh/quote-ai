@@ -3,43 +3,64 @@ import { checkSubscription } from "@/lib/stripe";
 import { SubscriptionInfo } from "./subscription-info";
 import { UsageStats } from "./usage-stats";
 import { Separator } from "@/components/ui/separator";
+import { redirect } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function SettingsPage() {
   const session = await auth();
-  if (!session?.user?.id) return null;
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
 
-  const subscription = await checkSubscription(session.user.id);
+  try {
+    const subscription = await checkSubscription(session.user.id);
 
-  return (
-    <div className="container max-w-4xl py-8">
-      <div className="flex flex-col gap-8">
-        <div>
-          <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">
-            Manage your account settings and subscription
-          </p>
-        </div>
-
-        <div className="space-y-6">
+    return (
+      <div className="container max-w-4xl py-8">
+        <div className="flex flex-col gap-8">
           <div>
-            <h2 className="text-xl font-semibold">Subscription</h2>
-            <p className="text-sm text-muted-foreground">
-              Manage your subscription and billing
+            <h1 className="text-3xl font-bold">Settings</h1>
+            <p className="text-muted-foreground">
+              Manage your account settings and subscription
             </p>
-            <Separator className="my-4" />
-            <SubscriptionInfo subscription={subscription} />
           </div>
 
-          <div>
-            <h2 className="text-xl font-semibold">Usage</h2>
-            <p className="text-sm text-muted-foreground">
-              Monitor your quote analysis usage
-            </p>
-            <Separator className="my-4" />
-            <UsageStats />
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold">Subscription</h2>
+              <p className="text-sm text-muted-foreground">
+                Manage your subscription and billing
+              </p>
+              <Separator className="my-4" />
+              <SubscriptionInfo subscription={subscription} />
+            </div>
+
+            <div>
+              <h2 className="text-xl font-semibold">Usage</h2>
+              <p className="text-sm text-muted-foreground">
+                Monitor your quote analysis usage
+              </p>
+              <Separator className="my-4" />
+              <UsageStats />
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  } catch (error) {
+    console.error("[SETTINGS_PAGE]", error);
+    return (
+      <Card className="mx-auto max-w-2xl">
+        <CardHeader>
+          <CardTitle>Error Loading Settings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">
+            There was an error loading your settings. Please try again later or
+            contact support if the problem persists.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 }

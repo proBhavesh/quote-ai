@@ -1,14 +1,28 @@
 import { PrismaClient } from "@prisma/client";
 
-const prismaClientSingleton = () => {
-  return new PrismaClient({
-    log: ["error"],
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL,
+function getPrismaClient() {
+  try {
+    return new PrismaClient({
+      log: ["error"],
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL,
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    console.error("[PRISMA_CLIENT_ERROR]", error);
+    throw new Error(
+      "Failed to initialize Prisma client. Check your database connection."
+    );
+  }
+}
+
+const prismaClientSingleton = () => {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is not defined in environment variables");
+  }
+  return getPrismaClient();
 };
 
 type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>;
