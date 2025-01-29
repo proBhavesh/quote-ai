@@ -7,6 +7,9 @@ import { UsageError } from "@/lib/types/usage";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
+// Set runtime configuration for Vercel
+export const maxDuration = 60; // Set timeout to 60 seconds
+
 function sanitizeFileName(fileName: string): string {
   // Remove special characters and replace spaces with underscores
   return fileName
