@@ -80,6 +80,10 @@ export async function processQuote(
         "   - Calculate what the total cost would be at current market prices\n" +
         "   - Show the actual difference between quoted total and market-rate total\n" +
         "   - Provide realistic percentage comparisons\n\n" +
+        "CRITICAL INSTRUCTION:\n" +
+        "- You must return ONLY valid JSON. Do not include any explanations, notes, or text before or after the JSON.\n" +
+        "- The response must start with '{' and end with '}' with no other characters.\n" +
+        "- Do not include any markdown formatting or code blocks.\n\n" +
         "IMPORTANT:\n" +
         "- Do not just repeat the quoted prices. Provide genuine market-based price estimates that may be higher or lower than the quoted prices.\n" +
         "- For supplier links, prioritize reputable vendors and ensure links are to specific product pages when possible.\n" +
@@ -102,7 +106,7 @@ export async function processQuote(
             {
               type: "text",
               text:
-                "Extract the raw data and provide REAL market price analysis in the SAME CURRENCY as the original quote. The quoted prices may not match current market rates. Return only JSON in this format:\n\n" +
+                "Extract the raw data and provide REAL market price analysis in the SAME CURRENCY as the original quote. The quoted prices may not match current market rates. You must return ONLY valid JSON. Do not include any explanations, notes, or text before or after the JSON. The response must start with '{' and end with '}' with no other characters. Do not include any markdown formatting or code blocks. Return only JSON in this format:\n\n" +
                 "{\n" +
                 '  "originalData": {\n' +
                 '    "text": string,\n' +
@@ -206,9 +210,16 @@ export async function processQuote(
     const text = result.content[0].text;
     console.log("[processQuote] Extracted text from response");
 
+    // Find the JSON object in the response
+    console.log("[processQuote] Extracting JSON from response");
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("No valid JSON found in Claude response");
+    }
+
     // Parse and validate the response
     console.log("[processQuote] Parsing JSON response");
-    const parsedResult = JSON.parse(text) as QuoteAnalysisResult;
+    const parsedResult = JSON.parse(jsonMatch[0]) as QuoteAnalysisResult;
 
     // Basic validation
     console.log("[processQuote] Validating response structure");

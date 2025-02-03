@@ -10,14 +10,27 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle2, XCircle } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Dashboard - Quote AI",
   description: "Manage your quotes and estimates",
 };
 
-export default async function DashboardPage() {
+interface SearchParams {
+  success?: string;
+  canceled?: string;
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const session = await auth();
+  const { success, canceled } = await searchParams;
+
   const recentQuotes = await prisma.quote.findMany({
     where: {
       userId: session?.user?.id,
@@ -30,6 +43,22 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {success === "true" && (
+        <Alert className="border-green-500 bg-green-50 text-green-700">
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertDescription>
+            Payment successful! Your subscription has been updated.
+          </AlertDescription>
+        </Alert>
+      )}
+      {canceled === "true" && (
+        <Alert className="border-destructive bg-destructive/10">
+          <XCircle className="h-4 w-4" />
+          <AlertDescription>
+            Payment was canceled. Your subscription remains unchanged.
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="flex justify-between">
         <div className="space-y-0.5">
           <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>

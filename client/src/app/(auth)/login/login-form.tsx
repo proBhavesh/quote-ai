@@ -49,20 +49,31 @@ export default function LoginForm({ login, error }: LoginFormProps) {
       formData.append("password", values.password);
 
       await login(formData);
+
+      // Only show success toast and redirect if no error was thrown
       toast({
         title: "Success",
         description: "Logged in successfully",
       });
       router.push("/dashboard");
     } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to login. Please try again.",
-        variant: "destructive",
-      });
+      // Show specific message for invalid credentials
+      if (
+        error instanceof Error &&
+        error.message.includes("Invalid email or password")
+      ) {
+        toast({
+          title: "Invalid credentials",
+          description: "The email or password you entered is incorrect.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }

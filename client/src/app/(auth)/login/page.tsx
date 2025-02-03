@@ -19,11 +19,15 @@ async function login(formData: FormData) {
   }
 
   try {
-    await signIn("credentials", {
+    const result = await signIn("credentials", {
       email: email as string,
       password: password as string,
       redirect: false,
     });
+
+    if (!result?.ok) {
+      throw new Error("Invalid email or password");
+    }
   } catch (error) {
     if ((error as Error).message.includes("CredentialsSignin")) {
       throw new Error("Invalid email or password");

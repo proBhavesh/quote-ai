@@ -32,7 +32,7 @@ interface UploadProgress {
   error?: string;
 }
 
-export default function MultiUploadForm({ userId }: { userId: string }) {
+export default function MultiUploadForm() {
   const router = useRouter();
   const [files, setFiles] = useState<FileWithPath[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -165,15 +165,22 @@ export default function MultiUploadForm({ userId }: { userId: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId,
           type: "MULTIPLE",
           totalFiles: files.length,
         }),
       });
 
-      if (!sessionResponse.ok)
+      const responseData = await sessionResponse.json();
+
+      if (!sessionResponse.ok) {
+        // Handle specific error cases
+        if (responseData.code === "USAGE_LIMIT_EXCEEDED") {
+          throw new Error(responseData.error);
+        }
         throw new Error("Failed to create upload session");
-      const { sessionId } = await sessionResponse.json();
+      }
+
+      const { sessionId } = responseData;
 
       // Upload files in parallel with rate limiting
       const batchSize = 3;
@@ -215,11 +222,18 @@ export default function MultiUploadForm({ userId }: { userId: string }) {
         status: "error",
         error: error instanceof Error ? error.message : "Upload failed",
       }));
+
+      // Show error toast with the specific message
       toast({
-        title: "Error",
+        title: "Upload Error",
         description: error instanceof Error ? error.message : "Upload failed",
         variant: "destructive",
       });
+
+      // Reset progress after a short delay
+      setTimeout(() => {
+        setProgress((prev) => ({ ...prev, status: "idle" }));
+      }, 3000);
     }
   };
 

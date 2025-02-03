@@ -16,7 +16,7 @@ export default async function NewQuotePage() {
 
   return (
     <div className="mx-auto max-w-4xl p-6">
-      <MultiUploadForm userId={session.user.id} />
+      <MultiUploadForm />
     </div>
   );
 }

@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 
+// Specify Node.js runtime for auth endpoints
+export const runtime = "nodejs";
+
 export const {
   handlers: { GET, POST },
   auth,
