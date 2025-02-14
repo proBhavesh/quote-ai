@@ -73,7 +73,7 @@ function NavbarComponent() {
           >
             <Avatar className="h-8 w-8">
               <AvatarImage
-                src={session.user.image ?? undefined}
+                src={ undefined}
                 alt={session.user.name ?? "User"}
               />
               <AvatarFallback className="bg-primary/10 text-primary">

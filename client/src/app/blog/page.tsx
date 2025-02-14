@@ -13,16 +13,18 @@ export const metadata: Metadata = {
   description: "Latest insights, guides, and updates about quote analysis and procurement",
 };
 
-interface BlogPageProps {
-  searchParams: Promise<{
-    page?: string;
-    category?: string;
-    tag?: string;
-    search?: string;
-  }>;
+interface SearchParams {
+  page?: string;
+  category?: string;
+  tag?: string;
+  search?: string;
 }
 
-async function getBlogPosts(params: Awaited<BlogPageProps["searchParams"]>) {
+interface BlogPageProps {
+  searchParams: Promise<SearchParams>;
+}
+
+async function getBlogPosts(params: SearchParams) {
   const page = Number(params.page) || 1;
   const limit = 9;
   const skip = (page - 1) * limit;
@@ -48,13 +50,13 @@ async function getBlogPosts(params: Awaited<BlogPageProps["searchParams"]>) {
         {
           title: {
             contains: params.search,
-            mode: Prisma.QueryMode.INSENSITIVE,
+            mode: Prisma.QueryMode.insensitive,
           },
         },
         {
           description: {
             contains: params.search,
-            mode: Prisma.QueryMode.INSENSITIVE,
+            mode: Prisma.QueryMode.insensitive,
           },
         },
       ],

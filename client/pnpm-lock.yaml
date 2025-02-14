@@ -141,6 +141,9 @@ importers:
       eslint-config-next:
         specifier: 15.1.3
         version: 15.1.3(eslint@9.17.0(jiti@1.21.7))(typescript@5.7.2)
+      eslint-plugin-react-hooks:
+        specifier: ^5.1.0
+        version: 5.1.0(eslint@9.17.0(jiti@1.21.7))
       postcss:
         specifier: ^8
         version: 8.4.49
@@ -2068,8 +2071,8 @@ packages:
     resolution: {integrity: sha512-/imKNG4EbWNrVjoNC/1H5/9GFy+tqjGBHCaSsN+P2RnPqjsLmv6UD3Ej+Kj8nBWaRAwyk7kK5ZUc+OEatnTR3A==}
     hasBin: true
 
-  jose@5.9.6:
-    resolution: {integrity: sha512-AMlnetc9+CV9asI19zHmrgS/WYsWUwCn2R7RzlbJWD7F9eWYUTGyBmU9o6PxngtLGOiDGPRu+Uc4fhKzbpteZQ==}
+  jose@5.10.0:
+    resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -2369,8 +2372,8 @@ packages:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
     engines: {node: '>=0.10.0'}
 
-  oauth4webapi@3.1.4:
-    resolution: {integrity: sha512-eVfN3nZNbok2s/ROifO0UAc5G8nRoLSbrcKJ09OqmucgnhXEfdIQOR4gq1eJH1rN3gV7rNw62bDEgftsgFtBEg==}
+  oauth4webapi@3.3.0:
+    resolution: {integrity: sha512-ZlozhPlFfobzh3hB72gnBFLjXpugl/dljz1fJSRdqaV2r3D5dmi5lg2QWI0LmUYuazmE+b5exsloEv6toUtw9g==}
 
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
@@ -3114,16 +3117,16 @@ snapshots:
       '@panva/hkdf': 1.2.1
       '@types/cookie': 0.6.0
       cookie: 0.7.1
-      jose: 5.9.6
-      oauth4webapi: 3.1.4
+      jose: 5.10.0
+      oauth4webapi: 3.3.0
       preact: 10.11.3
       preact-render-to-string: 5.2.3(preact@10.11.3)
 
   '@auth/core@0.37.4':
     dependencies:
       '@panva/hkdf': 1.2.1
-      jose: 5.9.6
-      oauth4webapi: 3.1.4
+      jose: 5.10.0
+      oauth4webapi: 3.3.0
       preact: 10.24.3
       preact-render-to-string: 6.5.11(preact@10.24.3)
 
@@ -5151,7 +5154,7 @@ snapshots:
 
   jiti@1.21.7: {}
 
-  jose@5.9.6: {}
+  jose@5.10.0: {}
 
   js-tokens@4.0.0: {}
 
@@ -5647,7 +5650,7 @@ snapshots:
 
   normalize-path@3.0.0: {}
 
-  oauth4webapi@3.1.4: {}
+  oauth4webapi@3.3.0: {}
 
   object-assign@4.1.1: {}
 
