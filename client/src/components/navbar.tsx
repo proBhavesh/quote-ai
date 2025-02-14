@@ -66,13 +66,16 @@ function NavbarComponent() {
     authContent = (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+          <Button 
+            variant="ghost" 
+            className="relative h-8 w-8 rounded-full ring-offset-background transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
+          >
             <Avatar className="h-8 w-8">
               <AvatarImage
                 src={session.user.image ?? undefined}
                 alt={session.user.name ?? "User"}
               />
-              <AvatarFallback>
+              <AvatarFallback className="bg-primary/10 text-primary">
                 {session.user.name
                   ?.split(" ")
                   .map((n) => n[0])
@@ -94,14 +97,18 @@ function NavbarComponent() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link href="/settings">Settings</Link>
+            <Link href="/settings" className="flex items-center cursor-pointer">
+              Settings
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/pricing">Plans & Pricing</Link>
+            <Link href="/pricing" className="flex items-center cursor-pointer">
+              Plans & Pricing
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            className="text-red-600 focus:text-red-600"
+            className="text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer"
             onClick={handleSignOut}
           >
             Log out
@@ -111,7 +118,7 @@ function NavbarComponent() {
     );
   } else {
     authContent = (
-      <Button asChild variant="default">
+      <Button asChild variant="default" className="font-medium shadow-sm">
         <Link href="/login">Sign in</Link>
       </Button>
     );
@@ -123,7 +130,7 @@ function NavbarComponent() {
         <Button
           variant="ghost"
           size="icon"
-          className="sm:hidden"
+          className="sm:hidden hover:bg-primary/10"
           aria-label="Open main menu"
         >
           <Menu className="h-6 w-6" />
@@ -131,14 +138,16 @@ function NavbarComponent() {
       </SheetTrigger>
       <SheetContent side="left" className="w-72">
         <SheetHeader className="text-left">
-          <SheetTitle className="text-xl font-bold">QuoteAI</SheetTitle>
+          <SheetTitle className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent">
+            QuoteAI
+          </SheetTitle>
         </SheetHeader>
         <div className="mt-6 flex flex-col space-y-3">
           {navigation.map((item) => (
             <SheetClose asChild key={item.href}>
               <Link
                 href={item.href}
-                className={`flex items-center px-2 py-2 text-base font-medium rounded-md ${
+                className={`flex items-center px-3 py-2 text-base font-medium rounded-md transition-colors ${
                   pathname === item.href
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -154,13 +163,16 @@ function NavbarComponent() {
   );
 
   return (
-    <nav className="border-b">
+    <nav className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 justify-between">
           <div className="flex items-center">
             {mobileNav}
             <div className="flex flex-shrink-0 items-center">
-              <Link href="/dashboard" className="text-xl font-bold">
+              <Link 
+                href="/dashboard" 
+                className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+              >
                 QuoteAI
               </Link>
             </div>
@@ -170,17 +182,24 @@ function NavbarComponent() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium ${
+                className={`inline-flex items-center px-1 pt-1 text-sm font-medium transition-all border-b-2 hover:-translate-y-[1px] ${
                   pathname === item.href
                     ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
                 }`}
               >
                 {item.name}
               </Link>
             ))}
           </div>
-          <div className="flex items-center">{authContent}</div>
+          <div className="flex items-center space-x-4">
+            {!session?.user && (
+              <Button asChild variant="ghost" className="hidden sm:inline-flex">
+                <Link href="/register">Get Started</Link>
+              </Button>
+            )}
+            {authContent}
+          </div>
         </div>
       </div>
     </nav>
