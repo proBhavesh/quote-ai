@@ -56,6 +56,11 @@ model User {
   sessions               Session[]
   Usage                  Usage[]
   uploadSessions         UploadSession[]
+  blogPosts              BlogPost[]
+  comments               Comment[]
+  role                 String     @default("USER")
+  bio                  String?    @db.Text
+  socialLinks          Json?      // Store social media links
 
   @@index([email])
 }
@@ -138,4 +143,65 @@ model FileStructure {
 
   @@index([sessionId])
   @@index([quoteId])
+}
+
+model BlogPost {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  title       String
+  description String?     @db.Text
+  content     String      @db.Text
+  image       String?
+  published   Boolean     @default(false)
+  featured    Boolean     @default(false)
+  authorId    String
+  author      User        @relation(fields: [authorId], references: [id])
+  categories  Category[]
+  tags        Tag[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  comments    Comment[]
+  views       Int         @default(0)
+  readingTime Int?        // in minutes
+
+  @@index([authorId])
+  @@index([slug])
+  @@index([published])
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  slug        String     @unique
+  description String?    @db.Text
+  posts       BlogPost[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Tag {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  slug      String     @unique
+  posts     BlogPost[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  content   String    @db.Text
+  postId    String
+  post      BlogPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id])
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([postId])
+  @@index([authorId])
+  @@index([parentId])
 }

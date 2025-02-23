@@ -244,6 +244,57 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* Latest Blog Posts Section */}
+        <section className="w-full py-12 md:py-24 lg:py-32 bg-white dark:bg-gray-900">
+          <div className="container px-4 md:px-6">
+            <div className="text-center space-y-4 mb-12">
+              <h2 className="text-3xl font-bold">Latest Insights</h2>
+              <p className="text-gray-500 dark:text-gray-400 max-w-[600px] mx-auto">
+                Stay updated with our latest articles on quote analysis, cost optimization, and industry trends
+              </p>
+            </div>
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              <Card>
+                <CardContent className="p-6">
+                  <Badge className="mb-4">Cloud Software</Badge>
+                  <h3 className="text-xl font-bold mb-2">Most Popular Cloud-based Accounting Software Solutions</h3>
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                    A comprehensive overview of leading cloud-based accounting software solutions and their benefits.
+                  </p>
+                  <Link href="/blog/most-popular-cloud-based-accounting-software-solutions">
+                    <Button variant="outline" className="w-full">Read More</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <Badge className="mb-4">Coming Soon</Badge>
+                  <h3 className="text-xl font-bold mb-2">AI in Quote Analysis: The Future of Cost Estimation</h3>
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                    Discover how AI is revolutionizing the quote analysis process and improving accuracy.
+                  </p>
+                  <Button variant="outline" className="w-full" disabled>Coming Soon</Button>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <Badge className="mb-4">Coming Soon</Badge>
+                  <h3 className="text-xl font-bold mb-2">Top 10 Cost Optimization Strategies for 2024</h3>
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                    Learn the most effective strategies to optimize costs and improve your bottom line.
+                  </p>
+                  <Button variant="outline" className="w-full" disabled>Coming Soon</Button>
+                </CardContent>
+              </Card>
+            </div>
+            <div className="text-center mt-12">
+              <Link href="/blog">
+                <Button variant="outline" size="lg">View All Posts</Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* How It Works Section with Timeline */}
         <section
           id="how-it-works"

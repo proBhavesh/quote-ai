@@ -9,6 +9,54 @@ export default {
   ],
   theme: {
   	extend: {
+      typography: {
+        DEFAULT: {
+          css: {
+            maxWidth: '100%', // Allows content to fill container width
+            color: 'hsl(var(--foreground))',
+            h1: {
+              color: 'hsl(var(--foreground))',
+              fontWeight: '700',
+            },
+            h2: {
+              color: 'hsl(var(--foreground))',
+              fontWeight: '600',
+            },
+            h3: {
+              color: 'hsl(var(--foreground))',
+              fontWeight: '600',
+            },
+            h4: {
+              color: 'hsl(var(--foreground))',
+              fontWeight: '600',
+            },
+            a: {
+              color: 'hsl(var(--primary))',
+              '&:hover': {
+                color: 'hsl(var(--primary))',
+                opacity: 0.8,
+              },
+            },
+            code: {
+              color: 'hsl(var(--primary))',
+              backgroundColor: 'hsl(var(--muted))',
+              padding: '0.25rem',
+              borderRadius: '0.25rem',
+              fontWeight: '400',
+            },
+            'code::before': {
+              content: '""',
+            },
+            'code::after': {
+              content: '""',
+            },
+            blockquote: {
+              color: 'hsl(var(--muted-foreground))',
+              borderLeftColor: 'hsl(var(--border))',
+            },
+          },
+        },
+      },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
@@ -80,5 +128,5 @@ export default {
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 } satisfies Config;

@@ -27,6 +27,7 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard" },
   { name: "Quotes", href: "/quotes" },
+  { name: "Blog", href: "/blog" },
 ];
 
 function NavbarComponent() {
@@ -106,6 +107,13 @@ function NavbarComponent() {
               Plans & Pricing
             </Link>
           </DropdownMenuItem>
+          {session.user.role === "ADMIN" && (
+            <DropdownMenuItem asChild>
+              <Link href="/admin/blog" className="flex items-center cursor-pointer">
+                Manage Blog
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer"

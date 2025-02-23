@@ -55,6 +55,7 @@ export const {
           id: user.id,
           email: user.email,
           name: user.name,
+          role: user.role,
         };
       },
     }),
@@ -65,6 +66,7 @@ export const {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
+        token.role = user.role;
       } else if (trigger === "update" && session) {
         // Handle session updates
         Object.assign(token, session.user);
@@ -76,6 +78,7 @@ export const {
         session.user.id = token.id as string;
         session.user.email = token.email as string;
         session.user.name = token.name as string;
+        session.user.role = token.role as string;
       }
       return session;
     },
