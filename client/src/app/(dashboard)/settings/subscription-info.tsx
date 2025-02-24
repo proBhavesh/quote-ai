@@ -5,8 +5,15 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PLANS } from "@/lib/plans";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface SubscriptionInfoProps {
   subscription: {
@@ -14,6 +21,7 @@ interface SubscriptionInfoProps {
     plan: keyof typeof PLANS;
     isCanceled: boolean;
     stripeCurrentPeriodEnd: Date | null;
+    stripeCustomerId: string | null;
   };
 }
 
@@ -94,18 +102,39 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
         </div>
       </div>
 
-      <div className="mt-6">
-        <Button
-          className="w-full"
-          onClick={handleManageSubscription}
-          disabled={loading || !subscription.isSubscribed}
-        >
-          {loading
-            ? "Loading..."
-            : subscription.isSubscribed
-            ? "Manage Subscription"
-            : "Upgrade Plan"}
-        </Button>
+      <div className="mt-6 flex flex-col gap-3">
+        {subscription.isSubscribed ? (
+          <Button
+            onClick={handleManageSubscription}
+            disabled={loading}
+          >
+            {loading ? "Loading..." : "Manage Subscription"}
+          </Button>
+        ) : (
+          <>
+            <Button asChild variant="default">
+              <Link href="/pricing">Upgrade Plan</Link>
+            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={handleManageSubscription}
+                    disabled={loading || !subscription.stripeCustomerId}
+                  >
+                    {loading ? "Loading..." : "Manage Billing"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {!subscription.stripeCustomerId 
+                    ? "Subscribe to a plan first to access billing management"
+                    : "Manage your billing information and payment methods"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </>
+        )}
       </div>
     </Card>
   );

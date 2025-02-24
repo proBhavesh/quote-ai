@@ -5,6 +5,7 @@ import { UsageStats } from "./usage-stats";
 import { Separator } from "@/components/ui/separator";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { prisma } from "@/lib/prisma";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -14,6 +15,15 @@ export default async function SettingsPage() {
 
   try {
     const subscription = await checkSubscription(session.user.id);
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { stripeCustomerId: true }
+    });
+
+    const subscriptionWithCustomerId = {
+      ...subscription,
+      stripeCustomerId: user?.stripeCustomerId ?? null
+    };
 
     return (
       <div className="container max-w-4xl py-8">
@@ -32,7 +42,7 @@ export default async function SettingsPage() {
                 Manage your subscription and billing
               </p>
               <Separator className="my-4" />
-              <SubscriptionInfo subscription={subscription} />
+              <SubscriptionInfo subscription={subscriptionWithCustomerId} />
             </div>
 
             <div>

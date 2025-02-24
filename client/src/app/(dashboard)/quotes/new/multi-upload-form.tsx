@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import JSZip from "jszip";
 import { Upload, File as FileIcon, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { showUsageLimitToast } from "@/components/ui/usage-limit-toast";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB total
@@ -175,7 +176,8 @@ export default function MultiUploadForm() {
       if (!sessionResponse.ok) {
         // Handle specific error cases
         if (responseData.code === "USAGE_LIMIT_EXCEEDED") {
-          throw new Error(responseData.error);
+          showUsageLimitToast({ message: responseData.error });
+          return;
         }
         throw new Error("Failed to create upload session");
       }
