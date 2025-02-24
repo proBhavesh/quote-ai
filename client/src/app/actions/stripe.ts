@@ -9,6 +9,13 @@ import { PLANS, PlanId } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
+// Add this type at the top of the file after imports
+type StripeError = {
+  type: string;
+  message: string;
+  statusCode: number;
+};
+
 // Helper function to get full URL
 const getFullUrl = (path: string) => {
   const baseUrl = process.env.NEXTAUTH_URL;
@@ -102,15 +109,30 @@ export async function handleSubscriptionChange(
           message: "No billing information found.",
         };
       }
-      const portalSession = await stripe.billingPortal.sessions.create({
-        customer: user.stripeCustomerId,
-        return_url: getFullUrl("/dashboard"),
-      });
-      return {
-        status: "success",
-        message: "Redirecting to billing portal...",
-        url: portalSession.url,
-      };
+      try {
+        const portalSession = await stripe.billingPortal.sessions.create({
+          customer: user.stripeCustomerId,
+          return_url: getFullUrl("/dashboard"),
+        });
+        return {
+          status: "success",
+          message: "Redirecting to billing portal...",
+          url: portalSession.url,
+        };
+      } catch (error) {
+        console.error("Error creating portal session:", error);
+        const stripeError = error as StripeError;
+        if (stripeError.type === "StripeInvalidRequestError" && stripeError.message?.includes("No configuration provided")) {
+          return {
+            status: "error",
+            message: "The billing portal is not configured. Please contact support.",
+          };
+        }
+        return {
+          status: "error",
+          message: "Unable to access billing portal. Please try again later.",
+        };
+      }
     }
 
     // Handling Free Plan Selection
@@ -121,16 +143,31 @@ export async function handleSubscriptionChange(
           message: "No active subscription to cancel.",
         };
       }
-      // Redirect to billing portal to cancel subscription
-      const portalSession = await stripe.billingPortal.sessions.create({
-        customer: user.stripeCustomerId!,
-        return_url: getFullUrl("/dashboard"),
-      });
-      return {
-        status: "success",
-        message: "Redirecting to cancel your subscription...",
-        url: portalSession.url,
-      };
+      try {
+        // Redirect to billing portal to cancel subscription
+        const portalSession = await stripe.billingPortal.sessions.create({
+          customer: user.stripeCustomerId!,
+          return_url: getFullUrl("/dashboard"),
+        });
+        return {
+          status: "success",
+          message: "Redirecting to cancel your subscription...",
+          url: portalSession.url,
+        };
+      } catch (error) {
+        console.error("Error creating portal session:", error);
+        const stripeError = error as StripeError;
+        if (stripeError.type === "StripeInvalidRequestError" && stripeError.message?.includes("No configuration provided")) {
+          return {
+            status: "error",
+            message: "The billing portal is not configured. Please contact support.",
+          };
+        }
+        return {
+          status: "error",
+          message: "Unable to access billing portal. Please try again later.",
+        };
+      }
     }
 
     // Handle paid plan changes
