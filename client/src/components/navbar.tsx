@@ -52,8 +52,9 @@ function NavbarComponent() {
   }, [update]);
 
   const handleSignOut = useCallback(async () => {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     await signOut({
-      callbackUrl: "/login",
+      callbackUrl: `${baseUrl}/login`,
       redirect: true,
     });
   }, []);
