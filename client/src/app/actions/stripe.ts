@@ -5,10 +5,15 @@ import { redirect } from "next/navigation";
 import { stripe } from "@/lib/stripe-client";
 import type Stripe from "stripe";
 import { createOrRetrieveCustomer } from "@/lib/stripe";
-import { absoluteUrl } from "@/lib/utils";
 import { PLANS, PlanId } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+
+// Helper function to get full URL
+const getFullUrl = (path: string) => {
+  const baseUrl = process.env.NEXTAUTH_URL;
+  return `${baseUrl}${path}`;
+};
 
 export async function createCheckoutSession(priceId: string) {
   const session = await auth();
@@ -26,8 +31,8 @@ export async function createCheckoutSession(priceId: string) {
         quantity: 1,
       },
     ],
-    success_url: absoluteUrl("/dashboard?success=true"),
-    cancel_url: absoluteUrl("/pricing?canceled=true"),
+    success_url: getFullUrl("/dashboard?success=true"),
+    cancel_url: getFullUrl("/pricing?canceled=true"),
     subscription_data: {
       metadata: {
         userId: session.user.id,
@@ -99,7 +104,7 @@ export async function handleSubscriptionChange(
       }
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
-        return_url: absoluteUrl("/dashboard"),
+        return_url: getFullUrl("/dashboard"),
       });
       return {
         status: "success",
@@ -119,7 +124,7 @@ export async function handleSubscriptionChange(
       // Redirect to billing portal to cancel subscription
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId!,
-        return_url: absoluteUrl("/dashboard"),
+        return_url: getFullUrl("/dashboard"),
       });
       return {
         status: "success",
@@ -182,8 +187,8 @@ export async function handleSubscriptionChange(
           quantity: 1,
         },
       ],
-      success_url: absoluteUrl("/dashboard?success=true"),
-      cancel_url: absoluteUrl("/pricing?canceled=true"),
+      success_url: getFullUrl("/dashboard?success=true"),
+      cancel_url: getFullUrl("/pricing?canceled=true"),
       subscription_data: {
         metadata: {
           userId: session.user.id,
