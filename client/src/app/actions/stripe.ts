@@ -26,8 +26,8 @@ export async function createCheckoutSession(priceId: string) {
         quantity: 1,
       },
     ],
-    success_url: `${process.env.NEXTAUTH_URL}/dashboard?success=true`,
-    cancel_url: `${process.env.NEXTAUTH_URL}/dashboard?canceled=true`,
+    success_url: absoluteUrl("/dashboard?success=true"),
+    cancel_url: absoluteUrl("/pricing?canceled=true"),
     subscription_data: {
       metadata: {
         userId: session.user.id,
