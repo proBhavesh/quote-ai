@@ -6,6 +6,7 @@ import { Navbar } from "@/components/navbar";
 import { Toaster } from "@/components/ui/toaster";
 import { auth } from "@/auth";
 import { SessionProvider } from "@/components/session-provider";
+import { Footer } from "@/components/footer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,13 +23,14 @@ export default async function RootLayout({
   const session = await auth();
 
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className="h-full">
+      <body className={`${inter.className} flex min-h-screen flex-col`}>
         <SessionProvider session={session}>
           <Navbar />
-          <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+          <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
             {children}
           </main>
+          <Footer />
           <Toaster />
           <Analytics />
         </SessionProvider>
