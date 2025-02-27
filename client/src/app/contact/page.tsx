@@ -23,10 +23,7 @@ export default function ContactPage() {
       message: formData.get("message") as string,
     };
 
-    console.log("📝 Contact form submission:", data);
-
     try {
-      console.log("📝 Sending request to /api/contact");
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: {
@@ -35,16 +32,12 @@ export default function ContactPage() {
         body: JSON.stringify(data),
       });
 
-      console.log("📝 Response status:", response.status);
       const result = await response.json();
-      console.log("📝 Response data:", result);
 
       if (!response.ok) {
-        console.error("📝 Error response:", result);
         throw new Error(result.error || "Failed to send message");
       }
 
-      console.log("📝 Email sent successfully:", result);
       toast({
         title: "Message sent",
         description: "Thank you for your feedback! We'll get back to you soon.",
@@ -53,11 +46,9 @@ export default function ContactPage() {
       // Reset form using the ref
       if (formRef.current) {
         formRef.current.reset();
-      } else {
-        console.warn("📝 Form reference is null, couldn't reset the form");
       }
     } catch (error) {
-      console.error("📝 Contact form error:", error);
+      console.error("Contact form error:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to send message. Please try again later.",

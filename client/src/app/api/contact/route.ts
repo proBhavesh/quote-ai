@@ -10,22 +10,16 @@ const contactSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  console.log("📧 Contact form submission received");
-  
   try {
     const body = await req.json();
-    console.log("📧 Request body:", JSON.stringify(body, null, 2));
 
     // Validate input
-    console.log("📧 Validating input data");
     const validatedData = contactSchema.parse(body);
     const { name, email, message } = validatedData;
-    console.log("📧 Input validation successful");
 
     // Verify environment variables
-    console.log("📧 Checking environment variables");
     if (!process.env.RESEND_API_KEY) {
-      console.error("📧 ERROR: Missing Resend API key");
+      console.error("Missing Resend API key");
       return NextResponse.json(
         { error: "Server configuration error" },
         { status: 500 }
@@ -33,17 +27,14 @@ export async function POST(req: Request) {
     }
 
     if (!process.env.CONTACT_FORM_RECIPIENT) {
-      console.error("📧 ERROR: Missing contact form recipient email");
+      console.error("Missing contact form recipient email");
       return NextResponse.json(
         { error: "Server configuration error" },
         { status: 500 }
       );
     }
 
-    console.log(`📧 Environment variables verified. Recipient: ${process.env.CONTACT_FORM_RECIPIENT}`);
-
     // Initialize Resend
-    console.log("📧 Initializing Resend client");
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     // Prepare email data
@@ -64,36 +55,26 @@ export async function POST(req: Request) {
 </div>
       `,
     };
-    
-    console.log("📧 Email data prepared:", JSON.stringify({
-      from: emailData.from,
-      to: emailData.to,
-      replyTo: emailData.replyTo,
-      subject: emailData.subject,
-    }, null, 2));
 
     // Send email
-    console.log("📧 Sending email via Resend");
     const { data, error } = await resend.emails.send(emailData);
 
     if (error) {
-      console.error("📧 Resend API error:", JSON.stringify(error, null, 2));
+      console.error("Resend API error:", error);
       return NextResponse.json(
-        { error: "Failed to send email", details: error },
+        { error: "Failed to send email" },
         { status: 500 }
       );
     }
 
-    console.log("📧 Email sent successfully:", JSON.stringify(data, null, 2));
     return NextResponse.json(
       { message: "Email sent successfully", id: data?.id },
       { status: 200 }
     );
   } catch (error) {
-    console.error("📧 Failed to send email:", error);
+    console.error("Failed to send email:", error);
     
     if (error instanceof z.ZodError) {
-      console.error("📧 Validation error:", JSON.stringify(error.errors, null, 2));
       return NextResponse.json(
         { error: "Invalid input data", details: error.errors },
         { status: 400 }
@@ -101,7 +82,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(
-      { error: "Failed to send email", message: error instanceof Error ? error.message : "Unknown error" },
+      { error: "Failed to send email" },
       { status: 500 }
     );
   }

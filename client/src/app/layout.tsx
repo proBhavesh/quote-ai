@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { auth } from "@/auth";
 import { SessionProvider } from "@/components/session-provider";
 import { Footer } from "@/components/footer";
+import { FloatingContactButton } from "@/components/floating-contact-button";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -31,6 +32,7 @@ export default async function RootLayout({
             {children}
           </main>
           <Footer />
+          <FloatingContactButton />
           <Toaster />
           <Analytics />
         </SessionProvider>
