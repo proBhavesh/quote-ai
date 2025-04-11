@@ -16,10 +16,16 @@ import JSZip from "jszip";
 import { Upload, File as FileIcon, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showUsageLimitToast } from "@/components/ui/usage-limit-toast";
+import {
+  compressPdf,
+  getPresignedUrl,
+  processConcurrent,
+} from "@/lib/upload-utils";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB total
 const MAX_FILES_PER_BATCH = 10;
+const BATCH_SIZE = 5; // Increased from 3 to 5
 
 interface FileWithPath {
   file: File;
@@ -184,58 +190,94 @@ export default function MultiUploadForm() {
 
       const { sessionId } = responseData;
 
-      // Upload files in parallel with rate limiting
-      const batchSize = 3;
-      for (let i = 0; i < files.length; i += batchSize) {
-        const batch = files.slice(i, i + batchSize);
-        await Promise.all(
-          batch.map(async ({ file, path }) => {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("path", path);
-            formData.append("sessionId", sessionId);
+      // Process files with optimized uploads
+      const uploadTasks = files.map(({ file, path }) => async () => {
+        try {
+          // Step 1: Compress the PDF
+          const compressedFile = await compressPdf(file);
 
-            const response = await fetch("/api/upload/quote", {
-              method: "POST",
-              body: formData,
-            });
+          // Step 2: Get presigned URL for direct upload
+          const { signedUrl, publicUrl } = await getPresignedUrl(
+            file.name,
+            file.type,
+            compressedFile.size
+          );
 
-            if (!response.ok) throw new Error(`Failed to upload ${file.name}`);
+          // Step 3: Upload directly to storage
+          const uploadResponse = await fetch(signedUrl, {
+            method: "PUT",
+            headers: {
+              "Content-Type": file.type,
+            },
+            body: compressedFile,
+          });
 
-            setProgress((prev) => ({
-              ...prev,
-              processed: prev.processed + 1,
-            }));
-          })
-        );
-      }
+          if (!uploadResponse.ok) {
+            throw new Error(`Failed to upload ${file.name}`);
+          }
 
-      setProgress((prev) => ({ ...prev, status: "complete" }));
-      toast({
-        title: "Success",
-        description: "All files uploaded successfully",
+          // Step 4: Create quote record
+          const formData = new FormData();
+          formData.append("fileUrl", publicUrl);
+          formData.append("title", path.split("/").pop() || file.name);
+          formData.append("sessionId", sessionId);
+          formData.append("path", path);
+
+          const response = await fetch("/api/upload/quote", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to process file");
+          }
+
+          setProgress((prev) => ({
+            ...prev,
+            processed: prev.processed + 1,
+          }));
+
+          return await response.json();
+        } catch (error) {
+          console.error(`Error processing ${file.name}:`, error);
+          throw error;
+        }
       });
 
-      // Redirect to quotes page after short delay
-      setTimeout(() => router.push("/quotes"), 1500);
+      // Process files with improved concurrency
+      await processConcurrent(uploadTasks, BATCH_SIZE);
+
+      setProgress((prev) => ({
+        ...prev,
+        status: "complete",
+      }));
+
+      toast({
+        title: "Upload Complete",
+        description: `Successfully uploaded ${files.length} files.`,
+      });
+
+      // Redirect to quotes page after 1.5 seconds
+      setTimeout(() => {
+        router.push("/quotes");
+      }, 1500);
     } catch (error) {
+      console.error("Upload error:", error);
       setProgress((prev) => ({
         ...prev,
         status: "error",
         error: error instanceof Error ? error.message : "Upload failed",
       }));
 
-      // Show error toast with the specific message
       toast({
-        title: "Upload Error",
-        description: error instanceof Error ? error.message : "Upload failed",
+        title: "Upload Failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
         variant: "destructive",
       });
-
-      // Reset progress after a short delay
-      setTimeout(() => {
-        setProgress((prev) => ({ ...prev, status: "idle" }));
-      }, 3000);
     }
   };
 

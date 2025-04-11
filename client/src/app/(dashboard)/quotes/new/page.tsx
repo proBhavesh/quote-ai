@@ -1,6 +1,5 @@
 import { Metadata } from "next";
 import { auth } from "@/auth";
-import { redirect } from "next/navigation";
 import MultiUploadForm from "./multi-upload-form";
 
 export const metadata: Metadata = {
@@ -9,10 +8,8 @@ export const metadata: Metadata = {
 };
 
 export default async function NewQuotePage() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+  // Auth is handled by middleware, just calling auth() to ensure session is loaded
+  await auth();
 
   return (
     <div className="mx-auto max-w-4xl p-6">

@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
@@ -23,13 +22,23 @@ interface LoginFormProps {
   error?: string;
 }
 
+// Define valid error types
+type AuthErrorType =
+  | "missing-fields"
+  | "invalid-credentials"
+  | "CredentialsSignin"
+  | "credential"
+  | "AuthorizeCallbackError"
+  | "OAuthAccountNotLinked"
+  | "fetch-failed"
+  | string;
+
 const formSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
 });
 
 export default function LoginForm({ login, error }: LoginFormProps) {
-  const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -48,32 +57,29 @@ export default function LoginForm({ login, error }: LoginFormProps) {
       formData.append("email", values.email);
       formData.append("password", values.password);
 
+      // We don't need to handle redirects or success toasts here
+      // The server action will handle redirects for both success and failure
       await login(formData);
 
-      // Only show success toast and redirect if no error was thrown
+      // If we get here, there was no redirect, which is unexpected but possible
+      // Just in case, show a loading message
       toast({
-        title: "Success",
-        description: "Logged in successfully",
+        title: "Processing",
+        description: "Please wait while we log you in...",
       });
-      router.push("/dashboard");
     } catch (error) {
-      // Show specific message for invalid credentials
-      if (
-        error instanceof Error &&
-        error.message.includes("Invalid email or password")
-      ) {
-        toast({
-          title: "Invalid credentials",
-          description: "The email or password you entered is incorrect.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "An unexpected error occurred. Please try again.",
-          variant: "destructive",
-        });
-      }
+      // This will only happen if there's a client-side error before the server action
+      console.error("Client-side login error:", error);
+
+      // Handle any client-side validation or network errors
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -90,13 +96,29 @@ export default function LoginForm({ login, error }: LoginFormProps) {
             Enter your credentials to sign in to your account
           </p>
           {error && (
-            <p className="text-sm text-destructive">
-              {error === "missing-fields"
-                ? "Please provide both email and password"
-                : error === "invalid-credentials"
-                ? "Invalid email or password"
-                : "Something went wrong"}
-            </p>
+            <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+              {(() => {
+                // Cast error to the union type
+                const errorType = error as AuthErrorType;
+
+                switch (errorType) {
+                  case "missing-fields":
+                    return "Please provide both email and password.";
+                  case "invalid-credentials":
+                  case "CredentialsSignin":
+                  case "credential":
+                    return "Invalid email or password. Please check your credentials and try again.";
+                  case "AuthorizeCallbackError":
+                    return "Authentication failed. Please try again or contact support if the issue persists.";
+                  case "OAuthAccountNotLinked":
+                    return "This email is already associated with a different provider. Please sign in using that method.";
+                  case "fetch-failed":
+                    return "Connection error. Please check your internet connection and try again.";
+                  default:
+                    return "An error occurred during login. Please try again or contact support.";
+                }
+              })()}
+            </div>
           )}
         </div>
 

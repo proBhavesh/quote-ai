@@ -7,12 +7,44 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
   throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY");
 }
 
+// Custom fetch function with retry logic
+const customFetchWithRetryAndTimeout = async (url: RequestInfo | URL, options?: RequestInit) => {
+  const MAX_RETRIES = 3;
+  const TIMEOUT_MS = 30000; // 30 seconds
+
+  let retries = 0;
+  while (retries < MAX_RETRIES) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      retries++;
+      if (retries >= MAX_RETRIES) throw error;
+
+      // Exponential backoff
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
+    }
+  }
+  throw new Error("Maximum retries reached");
+};
+
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   {
     auth: {
       persistSession: false,
+    },
+    global: {
+      fetch: customFetchWithRetryAndTimeout,
     },
     realtime: {
       params: {

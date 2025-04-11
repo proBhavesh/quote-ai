@@ -11,6 +11,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Define which environment variables should be available on the server only
+  experimental: {
+    serverComponentsExternalPackages: ["@prisma/client", "bcryptjs"],
+  },
+  // Ensure Prisma-related environment variables are only available server-side
+  env: {
+    // Only explicitly expose public environment variables here
+    // DATABASE_URL and other sensitive variables will only be available server-side
+  },
 };
 
 export default nextConfig;

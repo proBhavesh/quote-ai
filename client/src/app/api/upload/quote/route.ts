@@ -22,19 +22,12 @@ function sanitizeFileName(fileName: string): string {
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return new NextResponse(
-        JSON.stringify({
-          error: "Unauthorized",
-          code: "UNAUTHORIZED",
-        }),
-        { status: 401 }
-      );
-    }
+    // Auth is handled by middleware
+    const userId = session!.user!.id;
 
     // Check usage limits before processing
     try {
-      await checkUsageLimit(session.user.id);
+      await checkUsageLimit(userId);
     } catch (error) {
       // Check if it's a usage limit error
       if (
@@ -62,9 +55,74 @@ export async function POST(request: Request) {
     }
 
     const formData = await request.formData();
-    const file = formData.get("file") as File;
-    const path = formData.get("path") as string;
+
+    // Check if this is a direct upload (fileUrl provided) or file upload
+    const fileUrl = formData.get("fileUrl") as string;
+    const title = formData.get("title") as string;
     const sessionId = formData.get("sessionId") as string;
+    const path = formData.get("path") as string;
+
+    if (!title) {
+      return new NextResponse(
+        JSON.stringify({
+          error: "Title is required",
+          code: "TITLE_REQUIRED",
+        }),
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    // Handle direct upload case (when fileUrl is provided)
+    if (fileUrl) {
+      // Create quote record
+      const quote = await prisma.quote.create({
+        data: {
+          userId: userId,
+          title,
+          fileUrl,
+          status: "PENDING",
+        },
+      });
+
+      // Create file structure record if sessionId is provided
+      if (sessionId) {
+        await prisma.fileStructure.create({
+          data: {
+            sessionId,
+            originalPath: path || title,
+            fileName: title,
+            quoteId: quote.id,
+            parentFolder: path ? path.split("/").slice(0, -1).join("/") || null : null,
+          },
+        });
+
+        // Update session progress
+        await prisma.uploadSession.update({
+          where: { id: sessionId },
+          data: {
+            processedFiles: {
+              increment: 1,
+            },
+          },
+        });
+      }
+
+      // Increment usage count
+      await incrementUsage();
+
+      return NextResponse.json({
+        success: true,
+        quoteId: quote.id,
+      });
+    }
+
+    // Handle traditional file upload
+    const file = formData.get("file") as File;
 
     if (!file) {
       return new NextResponse(
@@ -116,7 +174,7 @@ export async function POST(request: Request) {
     // Sanitize the file name
     const sanitizedFileName = sanitizeFileName(file.name);
     const timestamp = Date.now();
-    const storageKey = `${session.user.id}/${timestamp}-${sanitizedFileName}`;
+    const storageKey = `${userId}/${timestamp}-${sanitizedFileName}`;
 
     // Upload file to Supabase Storage
     const { error: uploadError } = await supabase.storage
@@ -144,42 +202,49 @@ export async function POST(request: Request) {
       data: { publicUrl },
     } = supabase.storage.from("quotes").getPublicUrl(storageKey);
 
-    // Create quote record
-    const quote = await prisma.quote.create({
-      data: {
-        userId: session.user.id,
-        title: path.split("/").pop() || sanitizedFileName,
-        fileUrl: publicUrl,
-        status: "PENDING",
-      },
-    });
-
-    // Create file structure record
-    await prisma.fileStructure.create({
-      data: {
-        sessionId,
-        originalPath: path,
-        fileName: file.name, // Keep original filename for display
-        quoteId: quote.id,
-        parentFolder: path.split("/").slice(0, -1).join("/") || null,
-      },
-    });
-
-    // Update session progress
-    await prisma.uploadSession.update({
-      where: { id: sessionId },
-      data: {
-        processedFiles: {
-          increment: 1,
+    // Create quote record and FileStructure in a transaction (after storage upload)
+    const { quoteId } = await prisma.$transaction(async (tx) => {
+      // Create quote record
+      const quote = await tx.quote.create({
+        data: {
+          userId: userId,
+          title: title || path?.split("/").pop() || sanitizedFileName,
+          fileUrl: publicUrl,
+          status: "PENDING",
         },
-      },
+      });
+
+      // Create file structure record if sessionId is provided
+      if (sessionId) {
+        await tx.fileStructure.create({
+          data: {
+            sessionId,
+            originalPath: path || file.name,
+            fileName: file.name,
+            quoteId: quote.id,
+            parentFolder: path ? path.split("/").slice(0, -1).join("/") || null : null,
+          },
+        });
+
+        // Update session progress
+        await tx.uploadSession.update({
+          where: { id: sessionId },
+          data: {
+            processedFiles: {
+              increment: 1,
+            },
+          },
+        });
+      }
+
+      return { quoteId: quote.id };
     });
 
     // Increment usage count
     await incrementUsage();
 
     // Get updated usage info
-    const updatedUsage = await checkUsageLimit(session.user.id).catch(
+    const updatedUsage = await checkUsageLimit(userId).catch(
       (error) => {
         if (
           error &&
@@ -195,7 +260,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      quoteId: quote.id,
+      quoteId,
       usage: updatedUsage,
     });
   } catch (error) {

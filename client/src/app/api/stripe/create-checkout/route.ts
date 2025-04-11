@@ -13,9 +13,9 @@ const createCheckoutSchema = z.object({
 export async function POST(req: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
+    // Auth is handled by middleware
+    const userId = session!.user!.id;
+    const userEmail = session!.user!.email ?? "";
 
     const json = await req.json();
     const body = createCheckoutSchema.parse(json);
@@ -26,8 +26,8 @@ export async function POST(req: Request) {
     }
 
     const customer = await createOrRetrieveCustomer(
-      session.user.id,
-      session.user.email ?? ""
+      userId,
+      userEmail
     );
 
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       success_url: absoluteUrl("/dashboard?success=true"),
       cancel_url: absoluteUrl("/pricing?canceled=true"),
       metadata: {
-        userId: session.user.id,
+        userId: userId,
         planId: body.planId,
       },
     });

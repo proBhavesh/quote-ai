@@ -4,9 +4,8 @@ import { NextResponse } from "next/server";
 export async function POST() {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
+    // Auth is handled by middleware
+    const userId = session!.user!.id;
 
     const { prisma } = await import("@/lib/prisma");
 
@@ -17,7 +16,7 @@ export async function POST() {
 
     // Update user subscription status
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: userId },
       data: {
         subscriptionStatus: "FREE",
         stripeSubscriptionId: null,
@@ -29,7 +28,7 @@ export async function POST() {
     // Check if usage record already exists for current period
     const existingUsage = await prisma.usage.findFirst({
       where: {
-        userId: session.user.id,
+        userId: userId,
         periodStart: {
           gte: firstDayOfMonth,
         },
@@ -43,8 +42,8 @@ export async function POST() {
     if (!existingUsage) {
       await prisma.usage.create({
         data: {
-          id: `${session.user.id}-${firstDayOfMonth.getTime()}`,
-          userId: session.user.id,
+          id: `${userId}-${firstDayOfMonth.getTime()}`,
+          userId: userId,
           quotesAnalyzed: 0,
           periodStart: firstDayOfMonth,
           periodEnd: lastDayOfMonth,

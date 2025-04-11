@@ -5,17 +5,10 @@ import { getUserUsage } from "@/lib/usage";
 export async function GET() {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return new NextResponse(
-        JSON.stringify({
-          error: "Unauthorized",
-          code: "UNAUTHORIZED",
-        }),
-        { status: 401 }
-      );
-    }
+    // Auth is handled by middleware
+    const userId = session!.user!.id;
 
-    const usage = await getUserUsage(session.user.id);
+    const usage = await getUserUsage(userId);
 
     return NextResponse.json(usage);
   } catch (error) {

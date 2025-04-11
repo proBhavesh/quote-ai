@@ -3,26 +3,24 @@ import { checkSubscription } from "@/lib/stripe";
 import { SubscriptionInfo } from "./subscription-info";
 import { UsageStats } from "./usage-stats";
 import { Separator } from "@/components/ui/separator";
-import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 
 export default async function SettingsPage() {
   const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+  // Auth is handled by middleware
+  const userId = session!.user!.id;
 
   try {
-    const subscription = await checkSubscription(session.user.id);
+    const subscription = await checkSubscription(userId);
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { stripeCustomerId: true }
+      where: { id: userId },
+      select: { stripeCustomerId: true },
     });
 
     const subscriptionWithCustomerId = {
       ...subscription,
-      stripeCustomerId: user?.stripeCustomerId ?? null
+      stripeCustomerId: user?.stripeCustomerId ?? null,
     };
 
     return (

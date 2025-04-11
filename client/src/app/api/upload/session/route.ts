@@ -7,24 +7,20 @@ import { UsageError } from "@/lib/types/usage";
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
+    const userId = session!.user!.id;
 
     const body = await request.json();
     const { type, totalFiles } = body;
 
     // Check if total files would exceed the quota
     try {
-      const usage = await checkUsageLimit(session.user.id);
+      const usage = await checkUsageLimit(userId);
       if (usage.remainingQuotes < totalFiles) {
         return new NextResponse(
           JSON.stringify({
-            error: `Cannot upload ${totalFiles} files. You only have ${
-              usage.remainingQuotes
-            } quote${
-              usage.remainingQuotes === 1 ? "" : "s"
-            } remaining in your ${usage.planName} plan.`,
+            error: `Cannot upload ${totalFiles} files. You only have ${usage.remainingQuotes
+              } quote${usage.remainingQuotes === 1 ? "" : "s"
+              } remaining in your ${usage.planName} plan.`,
             code: "USAGE_LIMIT_EXCEEDED",
             usage,
           }),
@@ -63,7 +59,7 @@ export async function POST(request: Request) {
 
     const uploadSession = await prisma.uploadSession.create({
       data: {
-        userId: session.user.id,
+        userId: userId,
         type,
         totalFiles,
         status: "PROCESSING",

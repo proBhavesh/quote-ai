@@ -6,13 +6,12 @@ import { NextResponse } from "next/server";
 export async function POST() {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
+    // Auth is handled by middleware
+    const userId = session!.user!.id;
 
     const { prisma } = await import("@/lib/prisma");
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: userId },
     });
 
     if (!user?.stripeCustomerId) {

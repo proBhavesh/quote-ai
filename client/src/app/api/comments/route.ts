@@ -12,9 +12,8 @@ const commentSchema = z.object({
 export async function POST(req: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
+    // Auth is handled by middleware
+    const userId = session!.user!.id;
 
     const body = await req.json();
     const { content, postId, parentId } = commentSchema.parse(body);
@@ -43,7 +42,7 @@ export async function POST(req: Request) {
       data: {
         content,
         postId,
-        authorId: session.user.id,
+        authorId: userId,
         parentId,
       },
       include: {

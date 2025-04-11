@@ -24,14 +24,13 @@ const getFullUrl = (path: string) => {
 
 export async function createCheckoutSession(priceId: string) {
   const session = await auth();
-
-  if (!session?.user?.email) {
-    redirect("/login");
-  }
+  // Auth is handled by middleware
+  const userId = session!.user!.id;
+  const userEmail = session!.user!.email!;
 
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "subscription" as Stripe.Checkout.SessionCreateParams.Mode,
-    customer_email: session.user.email,
+    customer_email: userEmail,
     line_items: [
       {
         price: priceId,
@@ -42,7 +41,7 @@ export async function createCheckoutSession(priceId: string) {
     cancel_url: getFullUrl("/pricing?canceled=true"),
     subscription_data: {
       metadata: {
-        userId: session.user.id,
+        userId: userId,
       },
     },
   } as Stripe.Checkout.SessionCreateParams);
@@ -68,16 +67,13 @@ export async function handleSubscriptionChange(
 ): Promise<SubscriptionAction> {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return {
-        status: "error",
-        message: "You must be logged in to manage subscriptions.",
-      };
-    }
+    // Auth is handled by middleware for server actions too
+    const userId = session!.user!.id;
+    const userEmail = session!.user!.email ?? "";
 
     // Get current subscription status
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: userId },
       select: {
         stripeCustomerId: true,
         stripeSubscriptionId: true,
@@ -181,8 +177,8 @@ export async function handleSubscriptionChange(
 
     // Create or get Stripe customer
     const customer = await createOrRetrieveCustomer(
-      session.user.id,
-      session.user.email ?? ""
+      userId,
+      userEmail
     );
 
     // If user has an active subscription
@@ -200,7 +196,7 @@ export async function handleSubscriptionChange(
         ],
         proration_behavior: "always_invoice",
         metadata: {
-          userId: session.user.id,
+          userId: userId,
           planId: planId,
         },
       });
@@ -228,12 +224,12 @@ export async function handleSubscriptionChange(
       cancel_url: getFullUrl("/pricing?canceled=true"),
       subscription_data: {
         metadata: {
-          userId: session.user.id,
+          userId: userId,
           planId: planId,
         },
       },
       metadata: {
-        userId: session.user.id,
+        userId: userId,
         planId: planId,
       },
     });

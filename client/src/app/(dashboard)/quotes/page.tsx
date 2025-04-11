@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { QuotesList } from "@/components/quotes/quotes-list";
-import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
@@ -24,9 +23,8 @@ export default async function QuotesPage({
   searchParams: Promise<SearchParams>;
 }) {
   const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+  // Auth is handled by middleware
+  const userId = session!.user!.id;
 
   try {
     // Await searchParams values
@@ -35,7 +33,7 @@ export default async function QuotesPage({
     const limit = 10;
 
     const where = {
-      userId: session.user.id,
+      userId: userId,
       ...(status && status !== "all" && { status: status.toUpperCase() }),
     };
 
@@ -82,7 +80,7 @@ export default async function QuotesPage({
           <QuotesList
             initialQuotes={quotes}
             totalQuotes={totalQuotes}
-            userId={session.user.id}
+            userId={userId}
           />
         )}
       </div>

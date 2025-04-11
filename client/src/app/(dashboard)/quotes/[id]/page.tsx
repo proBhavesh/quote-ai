@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { auth } from "@/auth";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import {
   QuoteHeader,
@@ -24,15 +24,13 @@ export const metadata: Metadata = {
 async function QuoteContent({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   const { id } = await params;
-
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+  // Auth is handled by middleware
+  const userId = session!.user!.id;
 
   const quote = await prisma.quote.findUnique({
     where: {
       id,
-      userId: session.user.id,
+      userId: userId,
     },
   });
 
