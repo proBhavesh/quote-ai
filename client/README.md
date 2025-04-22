@@ -12,7 +12,7 @@ QuoteAI is a modern web application that helps businesses analyze quotes and inv
 - **User Management**: Secure authentication and user-specific quote history
 - **Subscription Plans**: Free and premium plans with usage tracking
 
-## Tech Stack
+## Tech Stackk
 
 ### Frontend
 
