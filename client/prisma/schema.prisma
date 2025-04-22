@@ -61,6 +61,8 @@ model User {
   sessions               Session[]
   uploadSessions         UploadSession[]
   Usage                  Usage[]
+  xeroConnections        XeroConnection[]
+  xeroImportSessions     XeroImportSession[]
 
   @@index([email])
 }
@@ -83,8 +85,10 @@ model Quote {
   results        Json?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+  sourceType     String          @default("UPLOAD")
   fileStructures FileStructure[]
   user           User            @relation(fields: [userId], references: [id])
+  xeroDocuments  XeroDocument[]
 
   @@index([userId])
 }
@@ -204,4 +208,63 @@ model Comment {
   @@index([postId])
   @@index([authorId])
   @@index([parentId])
+}
+
+model XeroConnection {
+  id                String             @id @default(cuid())
+  userId            String
+  tenantId          String             // Xero organization identifier
+  tenantName        String
+  accessToken       String             @db.Text
+  refreshToken      String             @db.Text
+  expiresAt         DateTime
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  xeroDocuments     XeroDocument[]
+  importSessions    XeroImportSession[]
+
+  @@unique([userId, tenantId])
+  @@index([userId])
+}
+
+model XeroDocument {
+  id                String          @id @default(cuid())
+  connectionId      String
+  xeroId            String          // Original Xero document ID
+  documentType      String          // QUOTE, INVOICE, RECEIPT, etc.
+  documentNumber    String
+  documentDate      DateTime
+  contactName       String
+  contactId         String
+  status            String
+  total             Float
+  currencyCode      String
+  quoteId           String?
+  fileUrl           String?
+  originalData      Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  connection        XeroConnection  @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  quote             Quote?          @relation(fields: [quoteId], references: [id])
+
+  @@unique([connectionId, xeroId])
+  @@index([connectionId])
+  @@index([quoteId])
+}
+
+model XeroImportSession {
+  id                  String          @id @default(cuid())
+  userId              String
+  connectionId        String
+  status              String          @default("PROCESSING") // PROCESSING, COMPLETED, FAILED
+  totalDocuments      Int
+  processedDocuments  Int             @default(0)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  user                User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection          XeroConnection  @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([connectionId])
 }

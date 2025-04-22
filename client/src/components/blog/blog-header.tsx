@@ -4,12 +4,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 
 export function BlogHeader() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Initialize search query from searchParams
+  useEffect(() => {
+    setSearchQuery(searchParams.get("search") || "");
+  }, [searchParams]);
 
   const handleSearch = useCallback(
     (e: React.FormEvent) => {
@@ -32,7 +37,8 @@ export function BlogHeader() {
         <div>
           <h1 className="font-heading text-3xl font-bold">Blog</h1>
           <p className="text-lg text-muted-foreground">
-            Latest insights, guides, and updates about quote analysis and procurement
+            Latest insights, guides, and updates about quote analysis and
+            procurement
           </p>
         </div>
       </div>
@@ -52,4 +58,4 @@ export function BlogHeader() {
       </form>
     </div>
   );
-} 
+}

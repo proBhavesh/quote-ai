@@ -34,7 +34,9 @@ export function BlogSidebar({ categories, popularPosts }: BlogSidebarProps) {
                 className="hover:underline"
               >
                 <Badge
-                  variant={currentCategory === category.slug ? "default" : "secondary"}
+                  variant={
+                    currentCategory === category.slug ? "default" : "secondary"
+                  }
                   className="cursor-pointer"
                 >
                   {category.name} ({category._count.posts})

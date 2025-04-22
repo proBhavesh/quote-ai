@@ -69,4 +69,4 @@ export function BlogPagination({
       </Button>
     </div>
   );
-} 
+}

@@ -3,12 +3,16 @@ import { PrismaClient } from "@prisma/client";
 // Check if we're running on the server or client
 const isServer = typeof window === 'undefined';
 
-function getPrismaClient() {
+// Define extended Prisma types to ensure the client properly handles all models
+// This is particularly important for models that might have been added or modified
+type ExtendedPrismaClient = PrismaClient;
+
+function getPrismaClient(): ExtendedPrismaClient {
   try {
     // Only initialize PrismaClient on the server
     if (!isServer) {
       // Return a mock/dummy client for client-side
-      return {} as PrismaClient;
+      return {} as ExtendedPrismaClient;
     }
 
     return new PrismaClient({

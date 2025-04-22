@@ -27,6 +27,7 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard" },
   { name: "Quotes", href: "/quotes" },
+  { name: "Integrations", href: "/integrations" },
   { name: "Blog", href: "/blog" },
 ];
 
@@ -68,15 +69,12 @@ function NavbarComponent() {
     authContent = (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="relative h-8 w-8 rounded-full ring-offset-background transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
           >
             <Avatar className="h-8 w-8">
-              <AvatarImage
-                src={ undefined}
-                alt={session.user.name ?? "User"}
-              />
+              <AvatarImage src={undefined} alt={session.user.name ?? "User"} />
               <AvatarFallback className="bg-primary/10 text-primary">
                 {session.user.name
                   ?.split(" ")
@@ -110,7 +108,10 @@ function NavbarComponent() {
           </DropdownMenuItem>
           {session.user.role === "ADMIN" && (
             <DropdownMenuItem asChild>
-              <Link href="/admin/blog" className="flex items-center cursor-pointer">
+              <Link
+                href="/admin/blog"
+                className="flex items-center cursor-pointer"
+              >
                 Manage Blog
               </Link>
             </DropdownMenuItem>
@@ -178,8 +179,8 @@ function NavbarComponent() {
           <div className="flex items-center">
             {mobileNav}
             <div className="flex flex-shrink-0 items-center">
-              <Link 
-                href="/dashboard" 
+              <Link
+                href="/dashboard"
                 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
               >
                 QuoteAI

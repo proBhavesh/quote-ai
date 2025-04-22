@@ -17,6 +17,10 @@ const serverSchema = z.object({
     required_error:
       "STRIPE_ENTERPRISE_PRICE_ID is required. Create an Enterprise product in Stripe Dashboard",
   }),
+  // Xero OAuth credentials
+  XERO_CLIENT_ID: z.string().optional(),
+  XERO_CLIENT_SECRET: z.string().optional(),
+  XERO_REDIRECT_URI: z.string().optional(),
 });
 
 // This is used to make sure we don't access server-side env vars on the client
@@ -37,8 +41,11 @@ const processEnv = {
   STRIPE_PREMIUM_PRICE_ID: process.env.STRIPE_PREMIUM_PRICE_ID,
   STRIPE_ENTERPRISE_PRICE_ID: process.env.STRIPE_ENTERPRISE_PRICE_ID,
   NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID: process.env.STRIPE_PREMIUM_PRICE_ID,
-  NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID:
-    process.env.STRIPE_ENTERPRISE_PRICE_ID,
+  NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID: process.env.STRIPE_ENTERPRISE_PRICE_ID,
+  // Xero environment variables
+  XERO_CLIENT_ID: process.env.XERO_CLIENT_ID,
+  XERO_CLIENT_SECRET: process.env.XERO_CLIENT_SECRET,
+  XERO_REDIRECT_URI: process.env.XERO_REDIRECT_URI,
 };
 
 const merged = serverSchema.merge(clientSchema);
