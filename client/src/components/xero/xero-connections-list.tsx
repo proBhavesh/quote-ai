@@ -20,6 +20,7 @@ import {
   Building,
   FileText,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { deleteXeroConnection } from "@/app/actions/xero";
@@ -39,20 +40,24 @@ export function XeroConnectionsList({
 }: {
   connections: XeroConnection[];
 }) {
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleDelete = async (connectionId: string) => {
-    setIsDeleting(connectionId);
+  const handleDelete = async () => {
+    if (!pendingDeleteId) return;
+
+    setIsDeleting(true);
 
     try {
-      await deleteXeroConnection(connectionId);
+      await deleteXeroConnection(pendingDeleteId);
       toast({
         title: "Connection removed",
         description: "Your Xero connection has been removed successfully.",
       });
+      // Keep the dialog open until deletion completes
       setOpenDeleteDialog(false);
     } catch (error) {
       toast({
@@ -63,13 +68,19 @@ export function XeroConnectionsList({
             ? error.message
             : "Failed to remove connection. Please try again.",
       });
+      // Keep dialog open on error so user can try again
+      setIsDeleting(false);
     } finally {
-      setIsDeleting(null);
+      // Reset state after dialog closes
+      if (!openDeleteDialog) {
+        setPendingDeleteId(null);
+        setIsDeleting(false);
+      }
     }
   };
 
   const promptDelete = (connectionId: string) => {
-    setIsDeleting(connectionId);
+    setPendingDeleteId(connectionId);
     setOpenDeleteDialog(true);
   };
 
@@ -111,7 +122,6 @@ export function XeroConnectionsList({
               variant="ghost"
               size="sm"
               onClick={() => promptDelete(connection.id)}
-              disabled={isDeleting === connection.id}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Remove
@@ -129,7 +139,17 @@ export function XeroConnectionsList({
         </Card>
       ))}
 
-      <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
+      <AlertDialog
+        open={openDeleteDialog}
+        onOpenChange={(open) => {
+          setOpenDeleteDialog(open);
+          if (!open) {
+            // Reset states when dialog is closed
+            setPendingDeleteId(null);
+            setIsDeleting(false);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Xero Connection</AlertDialogTitle>
@@ -140,15 +160,20 @@ export function XeroConnectionsList({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={!!isDeleting}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => isDeleting && handleDelete(isDeleting)}
-              disabled={!isDeleting}
+              onClick={handleDelete}
+              disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {!!isDeleting ? "Removing..." : "Remove Connection"}
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                "Remove Connection"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

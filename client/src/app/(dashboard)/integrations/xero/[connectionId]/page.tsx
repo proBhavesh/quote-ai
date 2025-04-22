@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
+import XeroDocumentsLoading from "./loading";
 
 export const metadata: Metadata = {
   title: "Import Documents from Xero - Quote AI",
@@ -18,6 +20,18 @@ interface XeroDocumentParams {
 }
 
 export default async function XeroDocumentsPage({
+  params,
+}: {
+  params: Promise<XeroDocumentParams>;
+}) {
+  return (
+    <Suspense fallback={<XeroDocumentsLoading />}>
+      <XeroDocumentsContent params={params} />
+    </Suspense>
+  );
+}
+
+async function XeroDocumentsContent({
   params,
 }: {
   params: Promise<XeroDocumentParams>;

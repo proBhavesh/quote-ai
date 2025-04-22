@@ -1,18 +1,20 @@
 import { Metadata } from "next";
 import { auth } from "@/auth";
-import { getXeroConnections, initiateXeroConnection } from "@/app/actions/xero";
-import { XeroConnectionsList } from "@/components/xero";
+import { getXeroConnections } from "@/app/actions/xero";
+import { XeroConnectionsList, XeroConnectForm } from "@/components/xero";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import IntegrationsLoading from "./loading";
+import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = {
   title: "Integrations - Quote AI",
@@ -33,6 +35,18 @@ export default async function IntegrationsPage({
 }) {
   await auth();
 
+  return (
+    <Suspense fallback={<IntegrationsLoading />}>
+      <IntegrationsContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function IntegrationsContent({
+  searchParams,
+}: {
+  searchParams: Promise<IntegrationSearchParams>;
+}) {
   // Get Xero connections
   const connections = await getXeroConnections();
 
@@ -87,20 +101,11 @@ async function XeroIntegrationCard({
 }: {
   connections: Awaited<ReturnType<typeof getXeroConnections>>;
 }) {
-  const handleConnect = async () => {
-    "use server";
-    const { authUrl } = await initiateXeroConnection();
-
-    if (authUrl) {
-      redirect(authUrl);
-    }
-  };
-
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden border-2">
+      <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
         <CardTitle className="flex items-center">
-          <div className="mr-2 h-8 w-8 flex items-center justify-center">
+          <div className="mr-3 h-10 w-10 flex items-center justify-center bg-blue-100 rounded-lg">
             <svg
               width="32"
               height="32"
@@ -126,31 +131,45 @@ async function XeroIntegrationCard({
               />
             </svg>
           </div>
-          Xero
+          <div>
+            Xero
+            <Badge variant="outline" className="ml-2 text-blue-500 bg-blue-50">
+              Accounting
+            </Badge>
+          </div>
         </CardTitle>
-        <CardDescription>
-          Import quotes and receipts from Xero for analysis. Connect your Xero
-          account to get started.
+        <CardDescription className="text-sm mt-2">
+          Import quotes and receipts from Xero for AI-powered analysis. Connect
+          your Xero account to get started with document processing.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         {connections.length > 0 ? (
           <div className="space-y-4">
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">
+              Connected accounts ({connections.length})
+            </h3>
             <XeroConnectionsList connections={connections} />
-            <form action={handleConnect}>
-              <Button type="submit" className="w-full">
-                Connect Another Xero Account
-              </Button>
-            </form>
           </div>
         ) : (
-          <form action={handleConnect}>
-            <Button type="submit" className="w-full">
-              Connect Xero
-            </Button>
-          </form>
+          <div className="text-center py-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-50 mb-4">
+              <ExternalLink className="h-6 w-6 text-blue-500" />
+            </div>
+            <h3 className="font-medium mb-1">No connections</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Connect your Xero account to import and analyze documents
+            </p>
+          </div>
         )}
       </CardContent>
+      <CardFooter
+        className={connections.length > 0 ? "pt-0" : "border-t bg-gray-50"}
+      >
+        <div className="w-full">
+          <XeroConnectForm isNewConnection={connections.length > 0} />
+        </div>
+      </CardFooter>
     </Card>
   );
 }
