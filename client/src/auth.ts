@@ -5,7 +5,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import type { Adapter } from 'next-auth/adapters';
 
-// Specify Node.js runtime for auth endpointss
+// Specify Node.js runtime for auth endpoints
 export const runtime = "nodejs";
 
 export const {
