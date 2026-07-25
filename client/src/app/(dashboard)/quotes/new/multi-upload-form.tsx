@@ -21,6 +21,11 @@ import {
   getPresignedUrl,
   processConcurrent,
 } from "@/lib/upload-utils";
+import {
+  ACCEPTED_FILE_TYPES_STRING,
+  getMimeTypeForFileName,
+  isAllowedQuoteFile,
+} from "@/lib/constants";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB total
@@ -56,10 +61,10 @@ export default function MultiUploadForm() {
       const zipFiles: FileWithPath[] = [];
 
       for (const [path, zipEntry] of Object.entries(contents.files)) {
-        if (!zipEntry.dir && path.toLowerCase().endsWith(".pdf")) {
+        if (!zipEntry.dir && isAllowedQuoteFile({ name: path, type: "" })) {
           const blob = await zipEntry.async("blob");
           const file = new File([blob], zipEntry.name, {
-            type: "application/pdf",
+            type: getMimeTypeForFileName(zipEntry.name),
           });
           zipFiles.push({ file, path });
         }
@@ -112,7 +117,7 @@ export default function MultiUploadForm() {
                 variant: "destructive",
               });
             }
-          } else if (file.type === "application/pdf") {
+          } else if (isAllowedQuoteFile(file)) {
             const path = isFolder
               ? file.webkitRelativePath || file.name
               : file.name;
@@ -290,7 +295,8 @@ export default function MultiUploadForm() {
       <CardHeader>
         <CardTitle>Upload Quotes</CardTitle>
         <CardDescription>
-          Upload PDFs, ZIP files containing PDFs, or select a folder
+          Upload quote documents (PDF, image, Word, Excel/CSV, text), ZIP
+          archives containing them, or select a folder
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -319,7 +325,8 @@ export default function MultiUploadForm() {
                 Drag & drop files here or click to select
               </p>
               <p className="text-sm text-muted-foreground">
-                Support for PDF files and ZIP archives
+                Support for PDF, image, Word, Excel/CSV, and text files, plus
+                ZIP archives
               </p>
             </div>
             <div className="flex gap-4">
@@ -329,8 +336,7 @@ export default function MultiUploadForm() {
                   const input = document.createElement("input");
                   input.type = "file";
                   input.multiple = true;
-                  input.accept =
-                    ".pdf,.zip,application/zip,application/x-zip-compressed,application/zip-compressed";
+                  input.accept = `${ACCEPTED_FILE_TYPES_STRING},.zip,application/zip,application/x-zip-compressed,application/zip-compressed`;
                   input.onchange = (e) =>
                     handleFiles((e.target as HTMLInputElement).files);
                   input.click();

@@ -1,12 +1,63 @@
 import { QuoteAnalysisResult, QuoteStatus } from "./types.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.204.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import mammoth from "https://esm.sh/mammoth@1.8.0";
+import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-3-5-sonnet-20241022";
 
+// 32MB matches Claude's per-file limit for document/image attachments
+const MAX_FILE_SIZE_BYTES = 32 * 1024 * 1024;
+
+type SupportedFileType = "pdf" | "image" | "docx" | "spreadsheet" | "text";
+
+const IMAGE_MEDIA_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+};
+
+function resolveFileType(extension: string): SupportedFileType {
+  const ext = extension.toLowerCase();
+  if (ext === "pdf") return "pdf";
+  if (ext in IMAGE_MEDIA_TYPES) return "image";
+  if (ext === "docx") return "docx";
+  if (ext === "xlsx" || ext === "xls" || ext === "csv") return "spreadsheet";
+  if (ext === "txt") return "text";
+  throw new Error(`Unsupported file type: .${extension}`);
+}
+
+async function extractText(
+  buffer: Uint8Array,
+  fileType: "docx" | "spreadsheet" | "text"
+): Promise<string> {
+  if (fileType === "docx") {
+    const result = await mammoth.extractRawText({
+      arrayBuffer: buffer.buffer.slice(
+        buffer.byteOffset,
+        buffer.byteOffset + buffer.byteLength
+      ),
+    });
+    return result.value;
+  }
+
+  if (fileType === "spreadsheet") {
+    const workbook = XLSX.read(buffer, { type: "array" });
+    return workbook.SheetNames.map(
+      (name: string) =>
+        `Sheet: ${name}\n${XLSX.utils.sheet_to_csv(workbook.Sheets[name])}`
+    ).join("\n\n");
+  }
+
+  return new TextDecoder("utf-8").decode(buffer);
+}
+
 interface ProcessQuoteParams {
-  pdfBuffer: Uint8Array;
+  fileBuffer: Uint8Array;
+  fileExtension: string;
   userId: string;
   quoteId: string;
 }
@@ -18,8 +69,11 @@ export async function processQuote(
   try {
     console.log("[processQuote] Starting quote processing");
     console.log(
-      `[processQuote] PDF buffer size: ${params.pdfBuffer.length} bytes`
+      `[processQuote] File buffer size: ${params.fileBuffer.length} bytes`
     );
+
+    const fileType = resolveFileType(params.fileExtension);
+    console.log(`[processQuote] Detected file type: ${fileType}`);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -46,20 +100,45 @@ export async function processQuote(
     }
     console.log("[processQuote] Successfully retrieved API key");
 
-    // Check PDF size limit (32MB)
-    if (params.pdfBuffer.length > 32 * 1024 * 1024) {
+    // Check file size limit (32MB, matches Claude's document/image limits)
+    if (params.fileBuffer.length > MAX_FILE_SIZE_BYTES) {
       console.error(
-        `[processQuote] PDF size ${params.pdfBuffer.length} bytes exceeds 32MB limit`
+        `[processQuote] File size ${params.fileBuffer.length} bytes exceeds 32MB limit`
       );
-      throw new Error("PDF file size exceeds 32MB limit");
+      throw new Error("File size exceeds 32MB limit");
     }
-    console.log("[processQuote] PDF size validation passed");
+    console.log("[processQuote] File size validation passed");
 
-    console.log("[processQuote] Converting PDF to base64");
-    const base64Data = base64Encode(params.pdfBuffer);
-    console.log(
-      `[processQuote] Base64 conversion complete. Length: ${base64Data.length}`
-    );
+    console.log("[processQuote] Building content for Claude request");
+    let fileContentBlock: Record<string, unknown>;
+    if (fileType === "pdf") {
+      fileContentBlock = {
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: base64Encode(params.fileBuffer),
+        },
+        cache_control: { type: "ephemeral" },
+      };
+    } else if (fileType === "image") {
+      fileContentBlock = {
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: IMAGE_MEDIA_TYPES[params.fileExtension.toLowerCase()],
+          data: base64Encode(params.fileBuffer),
+        },
+        cache_control: { type: "ephemeral" },
+      };
+    } else {
+      const extractedText = await extractText(params.fileBuffer, fileType);
+      fileContentBlock = {
+        type: "text",
+        text: `Document content:\n\n${extractedText}`,
+      };
+    }
+    console.log(`[processQuote] Built ${fileType} content block for Claude`);
 
     console.log("[processQuote] Preparing API request");
     const requestBody = {
@@ -92,17 +171,7 @@ export async function processQuote(
         {
           role: "user",
           content: [
-            {
-              type: "document",
-              source: {
-                type: "base64",
-                media_type: "application/pdf",
-                data: base64Data,
-              },
-              cache_control: {
-                type: "ephemeral",
-              },
-            },
+            fileContentBlock,
             {
               type: "text",
               text:

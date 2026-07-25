@@ -46,9 +46,17 @@ export async function getUploadSessionProgress(sessionId: string) {
 }
 
 /**
- * Compress a PDF file to reduce size before upload
+ * Compress a PDF file to reduce size before upload.
+ * Files other than PDFs are returned unchanged.
  */
 export async function compressPdf(file: File): Promise<File> {
+  const isPdf =
+    file.type === "application/pdf" ||
+    file.name.toLowerCase().endsWith(".pdf");
+  if (!isPdf) {
+    return file;
+  }
+
   try {
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await pdfLib.PDFDocument.load(arrayBuffer);
