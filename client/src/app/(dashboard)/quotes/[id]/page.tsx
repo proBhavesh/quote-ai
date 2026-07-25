@@ -11,12 +11,14 @@ import {
   ErrorCard,
   SupplierLinks,
   ApprovalPanel,
+  RfqSection,
 } from "@/components/quotes";
 import { AIAnalysisResults, OriginalData } from "@/types/quotes";
 import { Suspense } from "react";
 import QuoteDetailsLoading from "./loading";
 import { validateQuoteData } from "@/lib/utils/validate-quote";
 import { getMembership, getUserOrganizations } from "@/lib/organizations";
+import { listRfqsForQuote } from "@/lib/rfq";
 
 export const metadata: Metadata = {
   title: "Quote Details - Quote AI",
@@ -73,6 +75,8 @@ async function QuoteContent({ params }: { params: Promise<{ id: string }> }) {
         decidedAt: quote.approvals[0].decidedAt?.toISOString() ?? null,
       }
     : null;
+
+  const rfqs = await listRfqsForQuote(quote.id, userId);
 
   // Validate quote data
   const validationResults = await validateQuoteData({
@@ -157,6 +161,7 @@ async function QuoteContent({ params }: { params: Promise<{ id: string }> }) {
               )
           )}
           <CostSummary summary={results.summary} currency={currency} />
+          <RfqSection quoteId={quote.id} rfqs={rfqs} />
         </>
       )}
 

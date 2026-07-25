@@ -68,6 +68,7 @@ model User {
   invitesSent            OrganizationInvite[] @relation("InvitesSent")
   approvalsRequested     QuoteApproval[]      @relation("ApprovalsRequested")
   approvalsDecided       QuoteApproval[]      @relation("ApprovalsDecided")
+  rfqsCreated            Rfq[]
 
   @@index([email])
 }
@@ -98,9 +99,58 @@ model Quote {
   organization     Organization?     @relation(fields: [organizationId], references: [id])
   xeroDocuments    XeroDocument[]
   approvals        QuoteApproval[]
+  rfqs             Rfq[]
 
   @@index([userId])
   @@index([organizationId])
+}
+
+model Rfq {
+  id             String        @id @default(cuid())
+  quoteId        String
+  organizationId String?
+  createdById    String
+  title          String
+  message        String?
+  status         String        @default("DRAFT") // DRAFT, SENT, CLOSED
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  quote          Quote         @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdBy      User          @relation(fields: [createdById], references: [id])
+  lineItems      RfqLineItem[]
+  suppliers      RfqSupplier[]
+
+  @@index([quoteId])
+  @@index([organizationId])
+}
+
+model RfqLineItem {
+  id          String @id @default(cuid())
+  rfqId       String
+  description String
+  quantity    Float
+  unitPrice   Float
+  rfq         Rfq    @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+
+  @@index([rfqId])
+}
+
+model RfqSupplier {
+  id          String    @id @default(cuid())
+  rfqId       String
+  name        String
+  email       String
+  status      String    @default("PENDING") // PENDING, SENT, RESPONDED, DECLINED
+  token       String    @unique
+  quotedTotal Float?
+  notes       String?
+  sentAt      DateTime?
+  respondedAt DateTime?
+  createdAt   DateTime  @default(now())
+  rfq         Rfq       @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+
+  @@index([rfqId])
 }
 
 model Organization {
@@ -115,6 +165,7 @@ model Organization {
   invites   OrganizationInvite[]
   quotes    Quote[]
   approvals QuoteApproval[]
+  rfqs      Rfq[]
 
   @@index([ownerId])
 }

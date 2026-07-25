@@ -129,6 +129,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Suppliers respond to RFQs via a token link, without an account
+  if (path.startsWith("/rfq/respond/")) {
+    return NextResponse.next();
+  }
+
   // If it's an auth route and user is logged in, redirect to dashboard
   if (authRoutes.some((route) => path.startsWith(route)) && session) {
     return NextResponse.redirect(new URL("/dashboard", request.url));

@@ -7,3 +7,4 @@ export * from "./error-card";
 export * from "./supplier-links";
 export { QuotesList } from "./quotes-list";
 export { ApprovalPanel } from "./approval-panel";
+export { RfqSection } from "./rfq-section";
