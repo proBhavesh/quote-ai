@@ -10,11 +10,13 @@ import {
   CostSummary,
   ErrorCard,
   SupplierLinks,
+  ApprovalPanel,
 } from "@/components/quotes";
 import { AIAnalysisResults, OriginalData } from "@/types/quotes";
 import { Suspense } from "react";
 import QuoteDetailsLoading from "./loading";
 import { validateQuoteData } from "@/lib/utils/validate-quote";
+import { getMembership, getUserOrganizations } from "@/lib/organizations";
 
 export const metadata: Metadata = {
   title: "Quote Details - Quote AI",
@@ -27,16 +29,50 @@ async function QuoteContent({ params }: { params: Promise<{ id: string }> }) {
   // Auth is handled by middleware
   const userId = session!.user!.id;
 
-  const quote = await prisma.quote.findUnique({
+  const quote = await prisma.quote.findFirst({
     where: {
       id,
-      userId: userId,
+      OR: [
+        { userId },
+        { organization: { members: { some: { userId } } } },
+      ],
+    },
+    include: {
+      organization: true,
+      approvals: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: {
+          requestedBy: { select: { name: true, email: true } },
+          approver: { select: { name: true, email: true } },
+        },
+      },
     },
   });
 
   if (!quote) {
     notFound();
   }
+
+  const isOwner = quote.userId === userId;
+  const membership = quote.organizationId
+    ? await getMembership(quote.organizationId, userId)
+    : null;
+  const canDecideApproval =
+    membership?.role === "OWNER" ||
+    membership?.role === "ADMIN" ||
+    membership?.role === "APPROVER";
+  const userOrganizations = isOwner ? await getUserOrganizations(userId) : [];
+  const latestApproval = quote.approvals[0]
+    ? {
+        requestedByName:
+          quote.approvals[0].requestedBy.name || quote.approvals[0].requestedBy.email,
+        approverName:
+          quote.approvals[0].approver?.name || quote.approvals[0].approver?.email || null,
+        note: quote.approvals[0].note,
+        decidedAt: quote.approvals[0].decidedAt?.toISOString() ?? null,
+      }
+    : null;
 
   // Validate quote data
   const validationResults = await validateQuoteData({
@@ -68,6 +104,23 @@ async function QuoteContent({ params }: { params: Promise<{ id: string }> }) {
         status={quote.status}
         quoteId={quote.id}
         fileUrl={quote.fileUrl}
+      />
+
+      <ApprovalPanel
+        quoteId={quote.id}
+        isOwner={isOwner}
+        approvalStatus={quote.approvalStatus as "NONE" | "PENDING" | "APPROVED" | "REJECTED"}
+        organization={
+          quote.organization
+            ? { id: quote.organization.id, name: quote.organization.name }
+            : null
+        }
+        canDecide={canDecideApproval}
+        userOrganizations={userOrganizations.map(({ organization }) => ({
+          id: organization.id,
+          name: organization.name,
+        }))}
+        latestApproval={latestApproval}
       />
 
       {/* Show validation errors if any */}
