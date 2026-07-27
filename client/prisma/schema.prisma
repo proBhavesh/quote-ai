@@ -100,6 +100,7 @@ model Quote {
   xeroDocuments    XeroDocument[]
   approvals        QuoteApproval[]
   rfqs             Rfq[]
+  priceObservations PriceObservation[]
 
   @@index([userId])
   @@index([organizationId])
@@ -149,8 +150,32 @@ model RfqSupplier {
   respondedAt DateTime?
   createdAt   DateTime  @default(now())
   rfq         Rfq       @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  priceObservations PriceObservation[]
 
   @@index([rfqId])
+}
+
+model PriceObservation {
+  id                     String   @id @default(cuid())
+  description            String
+  quantity               Float
+  currency               String
+  quotedUnitPrice        Float
+  marketUnitPriceEstimate Float?
+  source                 String   // QUOTE_ANALYSIS, RFQ_SUPPLIER_RESPONSE
+  quoteId                String?
+  organizationId         String?
+  rfqSupplierId          String?
+  createdAt              DateTime @default(now())
+
+  quote        Quote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  rfqSupplier  RfqSupplier?  @relation(fields: [rfqSupplierId], references: [id], onDelete: SetNull)
+
+  @@index([description])
+  @@index([quoteId])
+  @@index([organizationId])
+  @@index([rfqSupplierId])
 }
 
 model Organization {
@@ -166,6 +191,7 @@ model Organization {
   quotes    Quote[]
   approvals QuoteApproval[]
   rfqs      Rfq[]
+  priceObservations PriceObservation[]
 
   @@index([ownerId])
 }

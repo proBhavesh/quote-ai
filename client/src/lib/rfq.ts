@@ -135,7 +135,17 @@ export async function submitSupplierResponse(
   quotedTotal: number,
   notes?: string
 ) {
-  const supplier = await prisma.rfqSupplier.findUnique({ where: { token } });
+  const supplier = await prisma.rfqSupplier.findUnique({
+    where: { token },
+    include: {
+      rfq: {
+        include: {
+          lineItems: true,
+          quote: { select: { organizationId: true, originalData: true } },
+        },
+      },
+    },
+  });
   if (!supplier) {
     throw new Error("This link is invalid");
   }
@@ -155,4 +165,40 @@ export async function submitSupplierResponse(
       respondedAt: new Date(),
     },
   });
+
+  // Real supplier prices are the strongest signal in the pricing dataset -
+  // proportionally attribute the total across the requested line items.
+  const { lineItems, quote } = supplier.rfq;
+  if (lineItems.length > 0) {
+    const currency =
+      (quote?.originalData as { currency?: string } | null)?.currency || "AED";
+    const originalSubtotal = lineItems.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0
+    );
+
+    const observations = lineItems.map((item) => {
+      const itemSubtotal = item.quantity * item.unitPrice;
+      const share =
+        originalSubtotal > 0
+          ? itemSubtotal / originalSubtotal
+          : 1 / lineItems.length;
+      const estimatedItemTotal = quotedTotal * share;
+      const estimatedUnitPrice =
+        item.quantity > 0 ? estimatedItemTotal / item.quantity : estimatedItemTotal;
+
+      return {
+        description: item.description,
+        quantity: item.quantity,
+        currency,
+        quotedUnitPrice: estimatedUnitPrice,
+        source: "RFQ_SUPPLIER_RESPONSE",
+        quoteId: supplier.rfq.quoteId,
+        organizationId: quote?.organizationId ?? null,
+        rfqSupplierId: supplier.id,
+      };
+    });
+
+    await prisma.priceObservation.createMany({ data: observations });
+  }
 }

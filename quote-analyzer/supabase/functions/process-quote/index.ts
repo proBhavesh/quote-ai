@@ -189,6 +189,45 @@ serve(async (req) => {
     }
     console.log("[process-quote] Successfully updated quote with results");
 
+    // Best-effort: record each line item as a price observation. This is the
+    // raw material for the proprietary pricing dataset - never block quote
+    // processing on it.
+    try {
+      const priceObservations = (analysis.line_items || []).map((item) => ({
+        id: crypto.randomUUID(),
+        description: item.description,
+        quantity: item.quantity,
+        currency: analysis.originalData.currency,
+        quotedUnitPrice: item.unit_price,
+        marketUnitPriceEstimate: item.market_data?.current_market_price ?? null,
+        source: "QUOTE_ANALYSIS",
+        quoteId: record.id,
+        organizationId: record.organizationId ?? null,
+      }));
+
+      if (priceObservations.length > 0) {
+        const { error: observationError } = await supabaseClient
+          .from("PriceObservation")
+          .insert(priceObservations);
+
+        if (observationError) {
+          console.error(
+            "[process-quote] Failed to record price observations:",
+            observationError
+          );
+        } else {
+          console.log(
+            `[process-quote] Recorded ${priceObservations.length} price observations`
+          );
+        }
+      }
+    } catch (observationCatchError) {
+      console.error(
+        "[process-quote] Unexpected error recording price observations:",
+        observationCatchError
+      );
+    }
+
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
