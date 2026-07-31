@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { nanoid } from "nanoid";
+import { logAuditEvent } from "@/lib/audit";
 
 export const ORG_ROLES = ["OWNER", "ADMIN", "APPROVER", "MEMBER"] as const;
 export type OrgRole = (typeof ORG_ROLES)[number];
@@ -104,7 +105,7 @@ export async function createOrganization(userId: string, name: string) {
 
   const slug = await generateUniqueSlug(trimmedName);
 
-  return prisma.organization.create({
+  const organization = await prisma.organization.create({
     data: {
       name: trimmedName,
       slug,
@@ -114,6 +115,16 @@ export async function createOrganization(userId: string, name: string) {
       },
     },
   });
+
+  await logAuditEvent({
+    organizationId: organization.id,
+    actorId: userId,
+    action: "ORGANIZATION_CREATED",
+    targetType: "Organization",
+    targetId: organization.id,
+  });
+
+  return organization;
 }
 
 export async function inviteMember(
@@ -153,6 +164,15 @@ export async function inviteMember(
     },
   });
 
+  await logAuditEvent({
+    organizationId,
+    actorId: inviterId,
+    action: "MEMBER_INVITED",
+    targetType: "OrganizationInvite",
+    targetId: invite.id,
+    metadata: { email: normalizedEmail, role },
+  });
+
   return invite;
 }
 
@@ -164,6 +184,14 @@ export async function revokeInvite(
   await requireOrgRole(organizationId, actingUserId, ["OWNER", "ADMIN"]);
   await prisma.organizationInvite.deleteMany({
     where: { id: inviteId, organizationId },
+  });
+
+  await logAuditEvent({
+    organizationId,
+    actorId: actingUserId,
+    action: "INVITE_REVOKED",
+    targetType: "OrganizationInvite",
+    targetId: inviteId,
   });
 }
 
@@ -210,6 +238,14 @@ export async function acceptInvite(
     }),
   ]);
 
+  await logAuditEvent({
+    organizationId: invite.organizationId,
+    actorId: userId,
+    action: "INVITE_ACCEPTED",
+    targetType: "OrganizationInvite",
+    targetId: invite.id,
+  });
+
   return invite.organizationId;
 }
 
@@ -231,10 +267,21 @@ export async function updateMemberRole(
     throw new Error("The organization owner's role cannot be changed");
   }
 
-  return prisma.organizationMember.update({
+  const updated = await prisma.organizationMember.update({
     where: { id: memberId },
     data: { role },
   });
+
+  await logAuditEvent({
+    organizationId,
+    actorId: actingUserId,
+    action: "MEMBER_ROLE_CHANGED",
+    targetType: "OrganizationMember",
+    targetId: memberId,
+    metadata: { previousRole: member.role, newRole: role },
+  });
+
+  return updated;
 }
 
 export async function removeMember(
@@ -255,4 +302,13 @@ export async function removeMember(
   }
 
   await prisma.organizationMember.delete({ where: { id: memberId } });
+
+  await logAuditEvent({
+    organizationId,
+    actorId: actingUserId,
+    action: "MEMBER_REMOVED",
+    targetType: "OrganizationMember",
+    targetId: memberId,
+    metadata: { removedUserId: member.userId },
+  });
 }

@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { auth } from "@/auth";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import {
   getOrganizationForMember,
   getMembership,
@@ -62,11 +63,21 @@ export default async function OrganizationPage({
   return (
     <div className="container max-w-4xl py-8">
       <div className="flex flex-col gap-8">
-        <div>
-          <h1 className="text-3xl font-bold">{organization.name}</h1>
-          <p className="text-muted-foreground">
-            Your role: <Badge variant="secondary">{myRole}</Badge>
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">{organization.name}</h1>
+            <p className="text-muted-foreground">
+              Your role: <Badge variant="secondary">{myRole}</Badge>
+            </p>
+          </div>
+          {canManage && (
+            <Link
+              href={`/organizations/${organization.id}/audit`}
+              className="text-sm underline text-muted-foreground hover:text-foreground"
+            >
+              View audit log
+            </Link>
+          )}
         </div>
 
         <Card>

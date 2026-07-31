@@ -13,6 +13,7 @@ import {
   type OrgRole,
 } from "@/lib/organizations";
 import { prisma } from "@/lib/prisma";
+import { logAuditEvent } from "@/lib/audit";
 
 function requireUserId() {
   return auth().then((session) => {
@@ -146,6 +147,16 @@ export async function assignQuoteToOrganizationAction(
       approvalStatus: organizationId ? quote.approvalStatus : "NONE",
     },
   });
+
+  if (organizationId) {
+    await logAuditEvent({
+      organizationId,
+      actorId: userId,
+      action: "QUOTE_ASSIGNED_TO_ORGANIZATION",
+      targetType: "Quote",
+      targetId: quoteId,
+    });
+  }
 
   revalidatePath(`/quotes/${quoteId}`);
   return { success: true };

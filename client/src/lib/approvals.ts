@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireOrgRole } from "@/lib/organizations";
+import { logAuditEvent } from "@/lib/audit";
 
 export async function submitQuoteForApproval(
   quoteId: string,
@@ -40,6 +41,14 @@ export async function submitQuoteForApproval(
       data: { approvalStatus: "PENDING" },
     }),
   ]);
+
+  await logAuditEvent({
+    organizationId: quote.organizationId,
+    actorId: userId,
+    action: "QUOTE_SUBMITTED_FOR_APPROVAL",
+    targetType: "Quote",
+    targetId: quote.id,
+  });
 }
 
 export async function decideQuoteApproval(
@@ -85,4 +94,13 @@ export async function decideQuoteApproval(
       data: { approvalStatus: decision },
     }),
   ]);
+
+  await logAuditEvent({
+    organizationId: quote.organizationId,
+    actorId: approverId,
+    action: decision === "APPROVED" ? "QUOTE_APPROVED" : "QUOTE_REJECTED",
+    targetType: "Quote",
+    targetId: quote.id,
+    metadata: note ? { note } : undefined,
+  });
 }

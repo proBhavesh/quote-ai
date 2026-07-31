@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { nanoid } from "nanoid";
+import { logAuditEvent } from "@/lib/audit";
 
 export interface RfqLineItemInput {
   description: string;
@@ -60,7 +61,7 @@ export async function createRfq(params: {
     throw new Error("Add at least one supplier with a name and email");
   }
 
-  return prisma.rfq.create({
+  const rfq = await prisma.rfq.create({
     data: {
       quoteId,
       organizationId: quote.organizationId,
@@ -78,6 +79,19 @@ export async function createRfq(params: {
     },
     include: { lineItems: true, suppliers: true },
   });
+
+  if (quote.organizationId) {
+    await logAuditEvent({
+      organizationId: quote.organizationId,
+      actorId: userId,
+      action: "RFQ_CREATED",
+      targetType: "Rfq",
+      targetId: rfq.id,
+      metadata: { supplierCount: validSuppliers.length },
+    });
+  }
+
+  return rfq;
 }
 
 export async function getRfqForUser(rfqId: string, userId: string) {
@@ -117,6 +131,16 @@ export async function markRfqSent(rfqId: string, userId: string) {
     }),
     prisma.rfq.update({ where: { id: rfqId }, data: { status: "SENT" } }),
   ]);
+
+  if (rfq.organizationId) {
+    await logAuditEvent({
+      organizationId: rfq.organizationId,
+      actorId: userId,
+      action: "RFQ_SENT",
+      targetType: "Rfq",
+      targetId: rfqId,
+    });
+  }
 }
 
 export async function getSupplierByToken(token: string) {
