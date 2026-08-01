@@ -63,6 +63,13 @@ model User {
   Usage                  Usage[]
   xeroConnections        XeroConnection[]
   xeroImportSessions     XeroImportSession[]
+  ownedOrganizations     Organization[]      @relation("OrganizationOwner")
+  organizationMembers    OrganizationMember[]
+  invitesSent            OrganizationInvite[] @relation("InvitesSent")
+  approvalsRequested     QuoteApproval[]      @relation("ApprovalsRequested")
+  approvalsDecided       QuoteApproval[]      @relation("ApprovalsDecided")
+  rfqsCreated            Rfq[]
+  auditLogs              AuditLog[]
 
   @@index([email])
 }
@@ -76,21 +83,185 @@ model VerificationToken {
 }
 
 model Quote {
-  id             String          @id @default(cuid())
-  userId         String
-  title          String
-  fileUrl        String
-  status         String          @default("PENDING")
-  originalData   Json?
-  results        Json?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  sourceType     String          @default("UPLOAD")
-  fileStructures FileStructure[]
-  user           User            @relation(fields: [userId], references: [id])
-  xeroDocuments  XeroDocument[]
+  id               String            @id @default(cuid())
+  userId           String
+  title            String
+  fileUrl          String
+  status           String            @default("PENDING")
+  originalData     Json?
+  results          Json?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  sourceType       String            @default("UPLOAD")
+  organizationId   String?
+  approvalStatus   String            @default("NONE") // NONE, PENDING, APPROVED, REJECTED
+  fileStructures   FileStructure[]
+  user             User              @relation(fields: [userId], references: [id])
+  organization     Organization?     @relation(fields: [organizationId], references: [id])
+  xeroDocuments    XeroDocument[]
+  approvals        QuoteApproval[]
+  rfqs             Rfq[]
+  priceObservations PriceObservation[]
 
   @@index([userId])
+  @@index([organizationId])
+}
+
+model Rfq {
+  id             String        @id @default(cuid())
+  quoteId        String
+  organizationId String?
+  createdById    String
+  title          String
+  message        String?
+  status         String        @default("DRAFT") // DRAFT, SENT, CLOSED
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  quote          Quote         @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdBy      User          @relation(fields: [createdById], references: [id])
+  lineItems      RfqLineItem[]
+  suppliers      RfqSupplier[]
+
+  @@index([quoteId])
+  @@index([organizationId])
+}
+
+model RfqLineItem {
+  id          String @id @default(cuid())
+  rfqId       String
+  description String
+  quantity    Float
+  unitPrice   Float
+  rfq         Rfq    @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+
+  @@index([rfqId])
+}
+
+model RfqSupplier {
+  id          String    @id @default(cuid())
+  rfqId       String
+  name        String
+  email       String
+  status      String    @default("PENDING") // PENDING, SENT, RESPONDED, DECLINED
+  token       String    @unique
+  quotedTotal Float?
+  notes       String?
+  sentAt      DateTime?
+  respondedAt DateTime?
+  createdAt   DateTime  @default(now())
+  rfq         Rfq       @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  priceObservations PriceObservation[]
+
+  @@index([rfqId])
+}
+
+model PriceObservation {
+  id                     String   @id @default(cuid())
+  description            String
+  quantity               Float
+  currency               String
+  quotedUnitPrice        Float
+  marketUnitPriceEstimate Float?
+  source                 String   // QUOTE_ANALYSIS, RFQ_SUPPLIER_RESPONSE
+  quoteId                String?
+  organizationId         String?
+  rfqSupplierId          String?
+  createdAt              DateTime @default(now())
+
+  quote        Quote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  rfqSupplier  RfqSupplier?  @relation(fields: [rfqSupplierId], references: [id], onDelete: SetNull)
+
+  @@index([description])
+  @@index([quoteId])
+  @@index([organizationId])
+  @@index([rfqSupplierId])
+}
+
+model Organization {
+  id        String               @id @default(cuid())
+  name      String
+  slug      String               @unique
+  ownerId   String
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  owner     User                 @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  members   OrganizationMember[]
+  invites   OrganizationInvite[]
+  quotes    Quote[]
+  approvals QuoteApproval[]
+  rfqs      Rfq[]
+  priceObservations PriceObservation[]
+  auditLogs AuditLog[]
+
+  @@index([ownerId])
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  actorId        String?
+  action         String
+  targetType     String?
+  targetId       String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([actorId])
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String       @default("MEMBER") // OWNER, ADMIN, APPROVER, MEMBER
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model OrganizationInvite {
+  id             String       @id @default(cuid())
+  organizationId String
+  email          String
+  role           String       @default("MEMBER") // ADMIN, APPROVER, MEMBER
+  token          String       @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy      User         @relation("InvitesSent", fields: [invitedById], references: [id])
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+model QuoteApproval {
+  id             String       @id @default(cuid())
+  quoteId        String
+  organizationId String
+  requestedById  String
+  approverId     String?
+  status         String       @default("PENDING") // PENDING, APPROVED, REJECTED
+  note           String?
+  decidedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  quote          Quote        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requestedBy    User         @relation("ApprovalsRequested", fields: [requestedById], references: [id])
+  approver       User?        @relation("ApprovalsDecided", fields: [approverId], references: [id])
+
+  @@index([quoteId])
+  @@index([organizationId])
 }
 
 model SubscriptionPlan {

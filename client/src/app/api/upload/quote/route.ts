@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { supabase } from "@/lib/supabase";
 import { checkUsageLimit, incrementUsage } from "@/lib/usage";
 import { UsageError } from "@/lib/types/usage";
+import { ALLOWED_MIME_TYPES, isAllowedQuoteFile } from "@/lib/constants";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -155,12 +156,12 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!file.type.includes("pdf")) {
+    if (!isAllowedQuoteFile(file)) {
       return new NextResponse(
         JSON.stringify({
-          error: "Only PDF files are supported",
+          error: "Unsupported file type",
           code: "INVALID_FILE_TYPE",
-          supportedTypes: ["application/pdf"],
+          supportedTypes: ALLOWED_MIME_TYPES,
         }),
         {
           status: 400,

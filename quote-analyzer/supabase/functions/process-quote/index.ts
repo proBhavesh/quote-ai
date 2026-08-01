@@ -121,28 +121,32 @@ serve(async (req) => {
     const filePath = fileUrlParts[1];
     console.log("[process-quote] Extracted file path:", filePath);
 
-    // Download PDF file from storage
-    console.log("[process-quote] Downloading PDF from storage");
-    const { data: pdfData, error: downloadError } = await supabaseClient.storage
+    // Download quote file from storage
+    console.log("[process-quote] Downloading file from storage");
+    const { data: fileData, error: downloadError } = await supabaseClient.storage
       .from("quotes")
       .download(filePath);
 
-    if (downloadError || !pdfData) {
-      console.error("[process-quote] Failed to download PDF:", downloadError);
+    if (downloadError || !fileData) {
+      console.error("[process-quote] Failed to download file:", downloadError);
       throw new Error(
-        `Failed to download PDF: ${downloadError?.message || "Unknown error"}`
+        `Failed to download file: ${downloadError?.message || "Unknown error"}`
       );
     }
-    console.log("[process-quote] Successfully downloaded PDF");
+    console.log("[process-quote] Successfully downloaded file");
+
+    const fileExtension = filePath.split(".").pop()?.toLowerCase() ?? "";
+    console.log(`[process-quote] Detected file extension: ${fileExtension}`);
 
     // Process with Claude
-    console.log("[process-quote] Converting PDF to buffer");
-    const pdfBuffer = new Uint8Array(await pdfData.arrayBuffer());
-    console.log(`[process-quote] PDF buffer size: ${pdfBuffer.length} bytes`);
+    console.log("[process-quote] Converting file to buffer");
+    const fileBuffer = new Uint8Array(await fileData.arrayBuffer());
+    console.log(`[process-quote] File buffer size: ${fileBuffer.length} bytes`);
 
     console.log("[process-quote] Sending to Claude for analysis");
     const analysis = await processQuote({
-      pdfBuffer: pdfBuffer,
+      fileBuffer,
+      fileExtension,
       userId: record.userId,
       quoteId: record.id,
     });
@@ -184,6 +188,45 @@ serve(async (req) => {
       throw new Error(`Failed to update quote: ${finalUpdate.error.message}`);
     }
     console.log("[process-quote] Successfully updated quote with results");
+
+    // Best-effort: record each line item as a price observation. This is the
+    // raw material for the proprietary pricing dataset - never block quote
+    // processing on it.
+    try {
+      const priceObservations = (analysis.line_items || []).map((item) => ({
+        id: crypto.randomUUID(),
+        description: item.description,
+        quantity: item.quantity,
+        currency: analysis.originalData.currency,
+        quotedUnitPrice: item.unit_price,
+        marketUnitPriceEstimate: item.market_data?.current_market_price ?? null,
+        source: "QUOTE_ANALYSIS",
+        quoteId: record.id,
+        organizationId: record.organizationId ?? null,
+      }));
+
+      if (priceObservations.length > 0) {
+        const { error: observationError } = await supabaseClient
+          .from("PriceObservation")
+          .insert(priceObservations);
+
+        if (observationError) {
+          console.error(
+            "[process-quote] Failed to record price observations:",
+            observationError
+          );
+        } else {
+          console.log(
+            `[process-quote] Recorded ${priceObservations.length} price observations`
+          );
+        }
+      }
+    } catch (observationCatchError) {
+      console.error(
+        "[process-quote] Unexpected error recording price observations:",
+        observationCatchError
+      );
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

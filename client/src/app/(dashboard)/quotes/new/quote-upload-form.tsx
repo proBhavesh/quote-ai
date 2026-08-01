@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { MAX_FILE_SIZE } from "@/lib/constants";
+import { ACCEPTED_FILE_TYPES_STRING, MAX_FILE_SIZE } from "@/lib/constants";
 import { compressPdf, getPresignedUrl } from "@/lib/upload-utils";
 import { Progress } from "@/components/ui/progress";
 
@@ -113,7 +113,8 @@ export default function QuoteUploadForm({
       <CardHeader>
         <CardTitle>Quote Details</CardTitle>
         <CardDescription>
-          Please provide a title and upload your quote document (max 10MB)
+          Please provide a title and upload your quote document (PDF, image,
+          Word, Excel/CSV, or text, max 10MB)
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -154,17 +155,18 @@ export default function QuoteUploadForm({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="file">PDF File</Label>
+              <Label htmlFor="file">Quote File</Label>
               <Input
                 id="file"
                 name="file"
                 type="file"
-                accept="application/pdf"
+                accept={ACCEPTED_FILE_TYPES_STRING}
                 required
                 max={MAX_FILE_SIZE}
               />
               <p className="text-sm text-muted-foreground">
-                Only PDF files up to 10MB are supported
+                PDF, image (JPG/PNG/GIF/WEBP), Word (.docx), Excel/CSV, or
+                text files up to 10MB are supported
               </p>
             </div>
             <div className="flex justify-end">
